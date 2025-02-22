@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+gunicorn
+scikit-learn
+xgboost
+pandas
+numpy
+matplotlib
+seaborn
+sqlalchemy
+psycopg2
+pydantic
+tensorflow
+networkx
+geopandas
+folium
