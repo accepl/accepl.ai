@@ -1,78 +1,43 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Accepl.AI Chatbot</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-    }
-    .chat-container {
-      width: 80%;
-      max-width: 600px;
-      margin: auto;
-      padding: 20px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      background-color: #f9f9f9;
-    }
-    .chat-box {
-      height: 300px;
-      overflow-y: auto;
-      margin-bottom: 20px;
-      border: 1px solid #ccc;
-      padding: 10px;
-      background-color: #fff;
-      border-radius: 5px;
-    }
-    .input-box {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accepl.AI EPC Project Dashboard</title>
+    <script>
+        async function getPrediction() {
+            let material_cost = document.getElementById("material_cost").value;
+            let labor_cost = document.getElementById("labor_cost").value;
+            let time_to_complete = document.getElementById("time_to_complete").value;
+
+            const response = await fetch('http://localhost:8000/calculate-roi-tariff/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    material_cost_per_mw: parseFloat(material_cost),
+                    labor_cost_per_mw: parseFloat(labor_cost),
+                    time_to_complete: parseFloat(time_to_complete)
+                })
+            });
+            const result = await response.json();
+            document.getElementById("result").innerHTML = `
+                <h2>Predicted ROI: ${result.roi}%</h2>
+                <h2>Predicted Tariff: ₹${result.tariff}/kWh</h2>
+            `;
+        }
+    </script>
 </head>
 <body>
-
-<div class="chat-container">
-  <div class="chat-box" id="chat-box"></div>
-  <input type="text" id="user-input" class="input-box" placeholder="Type your message..." onkeyup="checkInput(event)">
-</div>
-
-<script>
-  async function sendMessage(input) {
-    const responseBox = document.getElementById("chat-box");
-    const userMessage = `<div><strong>You:</strong> ${input}</div>`;
-    responseBox.innerHTML += userMessage;
-    document.getElementById("user-input").value = '';
-
-    // Send the input to your API endpoint
-    const response = await fetch("https://accepl-ai.onrender.com/predict", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ input: input })
-    });
-
-    const result = await response.json();
-    const aiMessage = `<div><strong>AI:</strong> ${result.prediction}</div>`;
-    responseBox.innerHTML += aiMessage;
-    responseBox.scrollTop = responseBox.scrollHeight;
-  }
-
-  function checkInput(event) {
-    if (event.key === 'Enter') {
-      const input = document.getElementById("user-input").value;
-      if (input.trim() !== '') {
-        sendMessage(input);
-      }
-    }
-  }
-</script>
-
+    <h1>Accepl.AI EPC Project Cost Prediction</h1>
+    <label for="material_cost">Material Cost per MW (₹): </label>
+    <input type="text" id="material_cost"><br><br>
+    <label for="labor_cost">Labor Cost per MW (₹): </label>
+    <input type="text" id="labor_cost"><br><br>
+    <label for="time_to_complete">Time to Complete (Months): </label>
+    <input type="text" id="time_to_complete"><br><br>
+    <button onclick="getPrediction()">Get Prediction</button>
+    <div id="result"></div>
 </body>
 </html>
