@@ -3,36 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI EPC API</title>
+    <title>Accepl.AI - AI EPC API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+        .container {
+            width: 90%;
+            max-width: 800px;
+            margin: auto;
+            background: #ffffff;
+            padding: 20px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            margin-top: 50px;
+        }
+        img {
+            width: 180px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            font-size: 24px;
+        }
+        h2 {
+            color: #555;
+            font-size: 20px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background: #007BFF;
+            color: white;
+            padding: 10px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        li:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f4f4f9;
+            padding: 10px;
+            text-align: left;
+            overflow: auto;
+            border-radius: 5px;
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #888;
+        }
+    </style>
 </head>
 <body>
-    <h1>AI EPC Prediction API</h1>
-    <p>Use this API to make predictions for EPC, Grid, Procurement, Maintenance, and Oil & Gas models.</p>
-    
-    <h2>Available Endpoints:</h2>
-    <ul>
-        <li><strong>POST /predict/epc/</strong> - Predict EPC Total Cost</li>
-        <li><strong>POST /predict/grid/</strong> - Predict Grid Load</li>
-        <li><strong>POST /predict/procurement/</strong> - Estimate Procurement Cost</li>
-        <li><strong>POST /predict/maintenance/</strong> - Predict Failure Probability</li>
-        <li><strong>POST /predict/oil_gas/</strong> - Predict Oil & Gas Leak Risk</li>
-    </ul>
 
-    <h3>How to Use:</h3>
-    <p>Send POST requests with JSON data to the endpoints above.</p>
+    <div class="container">
+        <!-- Your Logo -->
+        <img src="/static/logo.jpg" alt="Accredian Engineering Logo">
+        
+        <h1>Welcome to Accepl.AI EPC Prediction API</h1>
+        <p>Use this API to make predictions for EPC, Grid, Procurement, Maintenance, and Oil & Gas models.</p>
 
-    <p><strong>Example Request (EPC Cost Prediction):</strong></p>
-    <pre>
-    {
-        "project_size_mw": 200,
-        "material_cost": 350,
-        "labor_cost": 100,
-        "equipment_cost": 50
-    }
-    </pre>
-    <p>Response:</p>
-    <pre>{"estimated_total_cost": 482.75}</pre>
+        <h2>Available Endpoints:</h2>
+        <ul>
+            <li onclick="showExample('epc')">🚀 Predict EPC Total Cost</li>
+            <li onclick="showExample('grid')">⚡ Predict Grid Load</li>
+            <li onclick="showExample('procurement')">📦 Estimate Procurement Cost</li>
+            <li onclick="showExample('maintenance')">🛠 Predict Failure Probability</li>
+            <li onclick="showExample('oil_gas')">🛢 Predict Oil & Gas Leak Risk</li>
+        </ul>
 
-    <p><strong>Check API at:</strong> <a href="/">Go to API</a></p>
+        <h2>Example API Request:</h2>
+        <pre id="exampleRequest">Click an endpoint above to see a sample request</pre>
+
+        <h2>How to Use:</h2>
+        <p>Send a **POST request** with JSON data to the selected endpoint.</p>
+
+        <div class="footer">
+            <p>🔗 <strong>API Root:</strong> <a href="/">Go to API</a></p>
+            <p>📧 Contact: <a href="mailto:support@accepl.ai">support@accepl.ai</a></p>
+        </div>
+    </div>
+
+    <script>
+        function showExample(endpoint) {
+            const examples = {
+                "epc": `{
+    "project_size_mw": 200,
+    "material_cost": 350,
+    "labor_cost": 100,
+    "equipment_cost": 50
+}`,
+                "grid": `{
+    "hour": 15,
+    "temperature": 35,
+    "humidity": 60
+}`,
+                "procurement": `{
+    "price_per_unit": 400,
+    "logistics_cost": 80,
+    "material_type_steel": 1,
+    "material_type_cement": 0,
+    "material_type_cables": 0
+}`,
+                "maintenance": `{
+    "machine_age_years": 10,
+    "usage_hours": 5000,
+    "vibration": 3.2,
+    "temperature": 75
+}`,
+                "oil_gas": `{
+    "pipeline_age_years": 20,
+    "pressure_drop": 5.5,
+    "flow_rate": 15000
+}`
+            };
+            document.getElementById("exampleRequest").innerText = examples[endpoint] || "Click an endpoint above to see a sample request";
+        }
+    </script>
+
 </body>
 </html>
