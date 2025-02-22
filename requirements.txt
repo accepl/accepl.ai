@@ -2,8 +2,7 @@ Flask==2.3.2
 gunicorn==23.0.0
 requests==2.32.3
 pandas==2.2.3
-numpy==2.2.3
+numpy>=1.22.0,<2.0  # Update numpy version to a compatible range
 scikit-learn==1.6.1
 xgboost==2.1.4
-tensorflow==2.13.0  # Updated to a version compatible with Python 3.11
-# Remove the incompatible pytorch dependency
+tensorflow==2.13.0
