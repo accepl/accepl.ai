@@ -6,3 +6,4 @@ scikit-learn
 openai
 requests
 googlesearch-python
+gunicorn  # Add this for production stability
