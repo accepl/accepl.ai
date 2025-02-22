@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI EPC System</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 30px; background-color: #f4f4f4; }
+        #chatbox { width: 60%; height: 400px; border: 1px solid #ccc; padding: 10px; overflow-y: auto; background-color: white; margin: auto; }
+        input, select { width: 45%; padding: 10px; margin: 10px; }
+        button { padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>AI EPC Chatbot</h1>
+    <select id="category">
+        <option value="EPC">EPC</option>
+        <option value="Smart Grid">Smart Grid</option>
+        <option value="Procurement">Procurement</option>
+        <option value="Maintenance">Maintenance</option>
+        <option value="Oil & Gas">Oil & Gas</option>
+    </select>
+    <input type="text" id="userInput" placeholder="Ask AI a question..." />
+    <button onclick="sendQuery()">Ask</button>
+    <div id="chatbox"></div>
+
+    <script>
+        async function sendQuery() {
+            let question = document.getElementById("userInput").value;
+            let category = document.getElementById("category").value;
+            let chatbox = document.getElementById("chatbox");
+
+            chatbox.innerHTML += `<p><strong>You:</strong> ${question} (${category})</p>`;
+
+            let response = await fetch("http://127.0.0.1:10000/query/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ category, question })
+            });
+
+            let data = await response.json();
+            chatbox.innerHTML += `<p><strong>AI:</strong> ${data.answer}</p>`;
+        }
+    </script>
+</body>
+</html>
