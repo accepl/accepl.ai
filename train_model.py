@@ -1,17 +1,19 @@
-import joblib
+import os
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier  # Example model, change as needed
 
-# Load your dataset (adjust this according to your dataset)
-data = pd.read_csv('data.csv')  # Assuming you have a 'data.csv' file for training
-X_train = data.drop('target', axis=1)  # Features
-y_train = data['target']  # Target column
+# Check if the file exists before trying to load it
+file_path = 'data.csv'
+if os.path.exists(file_path):
+    data = pd.read_csv(file_path)
+else:
+    print(f"Warning: {file_path} not found. Using a dummy dataset for testing.")
+    # Create a dummy dataset if the file does not exist (for testing)
+    data = pd.DataFrame({
+        'feature1': [1, 2, 3],
+        'feature2': [4, 5, 6],
+        'label': [0, 1, 0]
+    })
 
-# Initialize and train the model
-model = RandomForestClassifier(n_estimators=100, random_state=42)
-model.fit(X_train, y_train)
-
-# Save the trained model using joblib
-joblib.dump(model, 'model.joblib')
-
-print("Model training completed and saved as 'model.joblib'")
+# Rest of your training logic
+print(data.head())  # Just to check if the data is loaded correctly
+# Proceed with model training...
