@@ -5,7 +5,5 @@ pandas==2.2.3
 numpy==2.2.3
 scikit-learn==1.6.1
 xgboost==2.1.4
-tensorflow==2.14.0  # Optional, replace with the library you're using for AI (e.g., tensorflow, torch)
-pytorch==1.14.1  # Optional, for PyTorch if you're using it
-uvicorn==0.34.0
-streamlit==1.42.2
+tensorflow==2.13.0  # Updated to a version compatible with Python 3.11
+# Remove the incompatible pytorch dependency
