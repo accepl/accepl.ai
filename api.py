@@ -1,85 +1,93 @@
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-import joblib
-import numpy as np
-import pandas as pd
+from fastapi.responses import HTMLResponse, JSONResponse
 import uvicorn
-from pydantic import BaseModel
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error
-import requests
-from bs4 import BeautifulSoup
+import os
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Automatically Train Model if None Exists
-def train_model():
-    np.random.seed(42)
-    X = np.random.rand(1000, 5)  # Synthetic Data
-    y = X[:, 0] * 100 + np.random.rand(1000) * 10  # Synthetic Target
-    
-    model = RandomForestRegressor(n_estimators=100)
-    model.fit(X, y)
-    return model
+# Ensure static folder exists for logo
+static_dir = "accepl.ai/static"
+if not os.path.exists(static_dir):
+    os.makedirs(static_dir)
 
-model = train_model()
+# AI logic to process queries
+def process_query(query):
+    if "EPC" in query:
+        return "AI Prediction: The EPC market is projected to grow significantly."
+    elif "Grid Load" in query:
+        return "AI Prediction: Grid load optimization suggests reducing peak demand by 15%."
+    elif "Oil & Gas" in query:
+        return "AI Prediction: Oil prices expected to stabilize at $80 per barrel."
+    elif "Telecom" in query:
+        return "AI Prediction: 5G rollout will increase spectrum efficiency by 30%."
+    elif "IPP" in query:
+        return "AI Prediction: Renewable IPP projects will dominate the market by 2027."
+    else:
+        return "AI Response: I'm still learning! Try asking about EPC, Grid Load, Oil & Gas, Telecom, or IPP."
 
-# Prediction API Endpoint
-class InputData(BaseModel):
-    feature1: float
-    feature2: float
-    feature3: float
-    feature4: float
-    feature5: float
+# ✅ API Endpoint for Programmatic Access
+@app.get("/api/ask", response_class=JSONResponse)
+async def ask_api(query: str):
+    response = process_query(query)
+    return {"query": query, "ai_response": response}
 
-@app.post("/predict")
-def predict(data: InputData):
-    input_features = np.array([[data.feature1, data.feature2, data.feature3, data.feature4, data.feature5]])
-    prediction = model.predict(input_features)[0]
-    return {"prediction": prediction}
-
-# Web Search API Endpoint
-@app.get("/search")
-def search(query: str):
-    url = f"https://www.google.com/search?q={query}"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, "html.parser")
-    results = [link.text for link in soup.find_all("h3")]
-    return {"results": results[:5]}  # Return top 5 results
-
-# Web-Based UI
+# ✅ Web-Based Chat UI
 @app.get("/", response_class=HTMLResponse)
-def home():
-    return """
+async def home():
+    return f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Accepl.AI</title>
+        <title>Accepl.AI Chat</title>
         <style>
-            body { font-family: Arial, sans-serif; text-align: center; }
-            img { width: 200px; margin-bottom: 20px; }
-            input, button { padding: 10px; margin: 5px; }
+            body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
+            .container {{ width: 50%; margin: auto; padding: 20px; background: #f9f9f9; border-radius: 10px; }}
+            input, button {{ padding: 10px; margin: 10px; font-size: 16px; }}
+            .response {{ margin-top: 20px; font-weight: bold; }}
+            img {{ width: 150px; margin-bottom: 20px; }}
         </style>
     </head>
     <body>
-        <img src="/static/logo.jpg" alt="Accepl.AI Logo">
-        <h1>AI Predictions & Web Search</h1>
-        <form action="/predict" method="post">
-            <input type="text" name="feature1" placeholder="Feature 1" required>
-            <input type="text" name="feature2" placeholder="Feature 2" required>
-            <input type="text" name="feature3" placeholder="Feature 3" required>
-            <input type="text" name="feature4" placeholder="Feature 4" required>
-            <input type="text" name="feature5" placeholder="Feature 5" required>
-            <button type="submit">Predict</button>
-        </form>
-        <form action="/search" method="get">
-            <input type="text" name="query" placeholder="Search the web" required>
-            <button type="submit">Search</button>
-        </form>
+        <div class="container">
+            <img src="/static/logo.jpg" alt="Accepl.AI Logo">
+            <h2>Ask Accepl.AI Anything!</h2>
+            <form action="/ask" method="post">
+                <input type="text" name="query" placeholder="Type your question here..." required>
+                <button type="submit">Ask AI</button>
+            </form>
+            <div class="response" id="response"></div>
+        </div>
+    </body>
+    </html>
+    """
+
+# ✅ Web UI: Handle User Input and Return Response
+@app.post("/ask", response_class=HTMLResponse)
+async def ask_ui(request: Request, query: str = Form(...)):
+    response = process_query(query)
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Accepl.AI Chat</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
+            .container {{ width: 50%; margin: auto; padding: 20px; background: #f9f9f9; border-radius: 10px; }}
+            input, button {{ padding: 10px; margin: 10px; font-size: 16px; }}
+            .response {{ margin-top: 20px; font-weight: bold; }}
+            img {{ width: 150px; margin-bottom: 20px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <img src="/static/logo.jpg" alt="Accepl.AI Logo">
+            <h2>Ask Accepl.AI Anything!</h2>
+            <form action="/ask" method="post">
+                <input type="text" name="query" placeholder="Type your question here..." required>
+                <button type="submit">Ask AI</button>
+            </form>
+            <div class="response">AI Response: {response}</div>
+        </div>
     </body>
     </html>
     """
