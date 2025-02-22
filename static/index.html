@@ -3,74 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI EPC Chatbot</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            text-align: center; 
-            padding: 30px; 
-            background-color: #f4f4f4; 
-        }
-        #chatbox { 
-            width: 60%; 
-            height: 400px; 
-            border: 1px solid #ccc; 
-            padding: 10px; 
-            overflow-y: auto; 
-            background-color: white; 
-            margin: auto; 
-        }
-        input, select { 
-            width: 45%; 
-            padding: 10px; 
-            margin: 10px; 
-        }
-        button { 
-            padding: 10px; 
-            cursor: pointer;
-        }
-    </style>
+    <title>AI EPC API</title>
 </head>
 <body>
-    <h1>AI EPC Chatbot</h1>
-    <select id="category">
-        <option value="epc">EPC</option>
-        <option value="smart grid">Smart Grid</option>
-        <option value="procurement">Procurement</option>
-        <option value="maintenance">Maintenance</option>
-        <option value="oil & gas">Oil & Gas</option>
-    </select>
-    <input type="text" id="userInput" placeholder="Ask AI a question..." />
-    <button onclick="sendQuery()">Ask</button>
-    <div id="chatbox"></div>
+    <h1>AI EPC Prediction API</h1>
+    <p>Use this API to make predictions for EPC, Grid, Procurement, Maintenance, and Oil & Gas models.</p>
+    
+    <h2>Available Endpoints:</h2>
+    <ul>
+        <li><strong>POST /predict/epc/</strong> - Predict EPC Total Cost</li>
+        <li><strong>POST /predict/grid/</strong> - Predict Grid Load</li>
+        <li><strong>POST /predict/procurement/</strong> - Estimate Procurement Cost</li>
+        <li><strong>POST /predict/maintenance/</strong> - Predict Failure Probability</li>
+        <li><strong>POST /predict/oil_gas/</strong> - Predict Oil & Gas Leak Risk</li>
+    </ul>
 
-    <script>
-        async function sendQuery() {
-            let question = document.getElementById("userInput").value;
-            let category = document.getElementById("category").value;
-            let chatbox = document.getElementById("chatbox");
+    <h3>How to Use:</h3>
+    <p>Send POST requests with JSON data to the endpoints above.</p>
 
-            if (question.trim() === "") {
-                alert("Please enter a question.");
-                return;
-            }
+    <p><strong>Example Request (EPC Cost Prediction):</strong></p>
+    <pre>
+    {
+        "project_size_mw": 200,
+        "material_cost": 350,
+        "labor_cost": 100,
+        "equipment_cost": 50
+    }
+    </pre>
+    <p>Response:</p>
+    <pre>{"estimated_total_cost": 482.75}</pre>
 
-            chatbox.innerHTML += `<p><strong>You:</strong> ${question} (${category})</p>`;
-
-            let response = await fetch("/query/", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ category, question })
-            });
-
-            if (!response.ok) {
-                chatbox.innerHTML += `<p><strong>AI:</strong> Error: Could not get a response. Please try again.</p>`;
-                return;
-            }
-
-            let data = await response.json();
-            chatbox.innerHTML += `<p><strong>AI:</strong> ${data.answer}</p>`;
-        }
-    </script>
+    <p><strong>Check API at:</strong> <a href="/">Go to API</a></p>
 </body>
 </html>
