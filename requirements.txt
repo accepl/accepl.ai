@@ -7,9 +7,10 @@ joblib
 xgboost
 python-multipart
 jinja2
-beautifulsoup4  # For web scraping (real-time web search)
-requests         # For fetching live data
-duckduckgo-search  # Lightweight search engine API alternative
-unidecode       # For typo handling
-textblob        # For text processing, grammar correction
-langdetect      # For language detection (if needed)
+beautifulsoup4
+requests
+duckduckgo-search
+unidecode
+textblob
+langdetect
+nltk
