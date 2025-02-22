@@ -1,39 +1,34 @@
-# api.py
-from fastapi import FastAPI
-import requests
-import pandas as pd
-import numpy as np
+from flask import Flask, request, jsonify
+import os
 
-# Initialize the FastAPI app
-app = FastAPI()
+# Initialize Flask app
+app = Flask(__name__)
 
-# Sample root route
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to Accepl.AI API!"}
+# Example AI model - Replace with your actual model code
+# This is a placeholder function for demonstration purposes
+def get_ai_response(user_input):
+    # Replace this function with your actual model inference code
+    # For example: result = your_model.predict(user_input)
+    return f"This is a response to your input: {user_input}"
 
-# Example route to fetch some data
-@app.get("/data")
-def get_data():
-    # Example data processing
-    data = pd.DataFrame({
-        "x": np.random.randn(10),
-        "y": np.random.randn(10),
-    })
-    return data.to_dict()
-
-# Error handling route for when something goes wrong
-@app.get("/error")
-def cause_error():
-    try:
-        # Intentionally raising an error to test error handling
-        1 / 0
-    except Exception as e:
-        return {"error": str(e)}
-
-# Sample AI model endpoint
-@app.get("/predict")
+# API route for handling user input and returning AI responses
+@app.route('/predict', methods=['POST'])
 def predict():
-    # Placeholder for your AI model prediction logic
-    return {"prediction": "AI model output here"}
+    # Extract input from the request
+    data = request.get_json()
+    user_input = data.get('input', '')
 
+    # Ensure input is not empty
+    if not user_input:
+        return jsonify({'error': 'No input provided'}), 400
+    
+    # Get AI response based on the user input
+    response = get_ai_response(user_input)
+
+    # Return the prediction as a JSON response
+    return jsonify({'prediction': response})
+
+# Dynamic port for deployment (works for Render)
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 8000))  # Get the port from Render environment or default to 8000
+    app.run(debug=True, host="0.0.0.0", port=port)  # Bind to 0.0.0.0 for accessibility
