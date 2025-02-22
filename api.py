@@ -1,122 +1,103 @@
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse
-import os
+from fastapi import FastAPI, Query
 import joblib
+import os
+import requests
+import logging
 import numpy as np
 import pandas as pd
-import uvicorn
 from sklearn.linear_model import LinearRegression
-from jinja2 import Template
-
-# Ensure the models directory exists
-models_path = "models"
-os.makedirs(models_path, exist_ok=True)
 
 # Initialize FastAPI app
 app = FastAPI()
 
-# Load or Train Models
-def train_epc_model():
-    """Train and save an EPC cost model."""
-    model_file = os.path.join(models_path, "epc_cost_model.pkl")
-    if not os.path.exists(model_file):
-        print("Training EPC model...")
-        X = np.array([[10], [20], [50], [100], [200]])  # Example project sizes in MW
-        y = np.array([100, 200, 500, 1000, 2000])  # Example EPC costs in million INR
-        model = LinearRegression()
-        model.fit(X, y)
-        joblib.dump(model, model_file)
-    return joblib.load(model_file)
+# Load trained models (EPC, Grid Load, Oil & Gas, Telecom, IPP)
+models_path = "models"
+epc_model = joblib.load(os.path.join(models_path, "epc_cost_model.pkl"))
+grid_model = joblib.load(os.path.join(models_path, "grid_forecasting.pkl"))
+oil_gas_model = joblib.load(os.path.join(models_path, "oil_gas_monitoring.pkl"))
+telecom_model = joblib.load(os.path.join(models_path, "telecom_cost_model.pkl"))
+ipp_model = joblib.load(os.path.join(models_path, "ipp_financial_model.pkl"))
 
-def train_grid_forecast_model():
-    """Train and save a Smart Grid forecasting model."""
-    model_file = os.path.join(models_path, "grid_forecast_model.pkl")
-    if not os.path.exists(model_file):
-        print("Training Grid Forecast model...")
-        X = np.array([[0], [6], [12], [18], [24]])  # Example hours
-        y = np.array([500, 700, 1500, 1000, 600])  # Example energy demand
-        model = LinearRegression()
-        model.fit(X, y)
-        joblib.dump(model, model_file)
-    return joblib.load(model_file)
+# Web Search Function (for real-time data fetching)
+def web_search(query):
+    url = f"https://www.googleapis.com/customsearch/v1?q={query}&key=YOUR_API_KEY"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()["items"][0]["snippet"]
+    return "No relevant data found."
 
-# Load models (train if missing)
-epc_model = train_epc_model()
-grid_model = train_grid_forecast_model()
+# Error Handling Logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Load logo
-logo_path = "/static/logo.jpg"
+# AI-based Financial Predictions
+def predict_financials(model, features):
+    try:
+        prediction = model.predict([features])
+        return float(prediction[0])
+    except Exception as e:
+        logger.error(f"Prediction error: {e}")
+        return "Error processing prediction."
 
-# HTML Template
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Accepl.AI - AI Predictions</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 50px; background-color: #f4f4f4; }
-        h1 { color: #333; }
-        img { width: 150px; margin-bottom: 20px; }
-        input, button { padding: 10px; margin: 5px; }
-        .chat-box { width: 50%; margin: auto; background: white; padding: 20px; border-radius: 10px; }
-    </style>
-</head>
-<body>
-    <img src="{{ logo_path }}" alt="Logo">
-    <h1>Accepl.AI - AI Chat & Predictions</h1>
-    
-    <div class="chat-box">
-        <h3>Ask AI:</h3>
-        <form method="post" action="/">
-            <input type="text" name="prompt" placeholder="Type your question..." required>
-            <button type="submit">Ask</button>
-        </form>
-        <p><strong>AI Response:</strong> {{ response }}</p>
-    </div>
-</body>
-</html>
-"""
+@app.get("/")
+def read_root():
+    return {"message": "🔥 Accepl.AI Advanced AI Chat & Predictions"}
 
-# Simple AI Response System
-def process_prompt(prompt: str):
-    prompt = prompt.lower()
+# EPC Cost Prediction
+@app.get("/predict/epc_cost")
+def predict_epc_cost(project_size: float = Query(..., description="Project size in MW")):
+    predicted_cost = predict_financials(epc_model, [project_size])
+    return {"EPC Cost Prediction (₹ Crore)": predicted_cost}
 
-    if "epc cost" in prompt:
-        try:
-            value = int("".join(filter(str.isdigit, prompt)))
-            prediction = epc_model.predict(np.array([[value]]))[0]
-            return f"Estimated EPC cost for {value} MW is ₹{prediction:.2f} million."
-        except:
-            return "Please specify a valid project size in MW."
+# Grid Load Forecasting
+@app.get("/predict/grid_load")
+def predict_grid_load(hour: int = Query(..., description="Hour of the day (0-23)")):
+    predicted_load = predict_financials(grid_model, [hour])
+    return {"Predicted Grid Load (MW)": predicted_load}
 
-    elif "grid load" in prompt:
-        try:
-            value = int("".join(filter(str.isdigit, prompt)))
-            prediction = grid_model.predict(np.array([[value]]))[0]
-            return f"Predicted energy demand at hour {value}: {prediction:.2f} MW."
-        except:
-            return "Please specify a valid hour (0-24)."
+# Oil & Gas Financial Projections
+@app.get("/predict/oil_gas")
+def predict_oil_gas(reserve_estimate: float = Query(..., description="Reserve estimate in million barrels")):
+    projected_cost = predict_financials(oil_gas_model, [reserve_estimate])
+    return {"Projected Oil & Gas Cost ($M)": projected_cost}
 
-    elif "hello" in prompt:
-        return "Hey there! Ask me about EPC costs, grid forecasts, or AI predictions!"
+# Telecom Cost Analysis
+@app.get("/predict/telecom")
+def predict_telecom(subscribers: int = Query(..., description="Number of subscribers (millions)")):
+    telecom_revenue = predict_financials(telecom_model, [subscribers])
+    return {"Projected Telecom Revenue ($B)": telecom_revenue}
 
-    return "I'm not sure. Try asking about EPC costs or grid load predictions."
+# IPP Financials
+@app.get("/predict/ipp")
+def predict_ipp(ppa_tariff: float = Query(..., description="PPA tariff (₹/kWh)")):
+    ipp_cost = predict_financials(ipp_model, [ppa_tariff])
+    return {"IPP Projected Cost (₹ Crore)": ipp_cost}
 
-# Route to serve the main UI
-@app.get("/", response_class=HTMLResponse)
-async def main():
-    template = Template(HTML_TEMPLATE)
-    return template.render(response="", logo_path=logo_path)
+# Web Search for Real-Time Data
+@app.get("/search")
+def search_web(query: str = Query(..., description="Search any industry-related query")):
+    return {"Web Search Result": web_search(query)}
 
-# Handle user input and AI responses
-@app.post("/", response_class=HTMLResponse)
-async def chat(request: Request, prompt: str = Form(...)):
-    response = process_prompt(prompt)
-    template = Template(HTML_TEMPLATE)
-    return template.render(response=response, logo_path=logo_path)
+# AI Chat (Dynamic Responses)
+@app.get("/chat")
+def chat_ai(prompt: str = Query(..., description="Ask any question about EPC, IPP, Oil & Gas, or Telecom")):
+    try:
+        if "epc" in prompt.lower():
+            return {"AI Response": "EPC (Engineering, Procurement, Construction) involves managing costs, contracts, and project execution."}
+        elif "grid" in prompt.lower():
+            return {"AI Response": "Grid load prediction helps balance electricity demand and supply."}
+        elif "oil" in prompt.lower():
+            return {"AI Response": "Oil & Gas projects require reserve estimates, drilling costs, and market forecasts."}
+        elif "telecom" in prompt.lower():
+            return {"AI Response": "Telecom investments involve spectrum licensing, network rollout, and subscriber retention strategies."}
+        else:
+            return {"AI Response": web_search(prompt)}
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        return {"AI Response": "Error processing request."}
 
-# Run the server
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=10000)
+# Error Handling
+@app.exception_handler(Exception)
+def handle_exceptions(request, exc):
+    logger.error(f"Unhandled Error: {exc}")
+    return {"error": "Internal Server Error. Please try again."}
