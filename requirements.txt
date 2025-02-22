@@ -14,3 +14,4 @@ seaborn
 tensorflow
 sqlalchemy
 psycopg2
+beautifulsoup4  # ✅ For Web Scraping & Market Data
