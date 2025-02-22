@@ -4,4 +4,6 @@ scikit-learn
 pandas
 numpy
 joblib
-python-multipart
+xgboost
+python-multipart  # Required for handling form inputs
+jinja2  # For rendering the front-end UI inside API
