@@ -1,77 +1,141 @@
 import os
 import joblib
-from fastapi import FastAPI
-import numpy as np
 import pandas as pd
+import numpy as np
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
-# Define the models directory
-models_path = "models"
-os.makedirs(models_path, exist_ok=True)
-
-# Model filenames
-model_files = {
-    "epc_cost_model.pkl": "epc_cost_model",
-    "grid_forecasting.pkl": "grid_forecasting",
-    "oil_gas_monitoring.pkl": "oil_gas_monitoring",
-    "predictive_maintenance.pkl": "predictive_maintenance",
-    "procurement_ai.pkl": "procurement_ai"
-}
-
-# Load models dynamically or train if missing
-for model_name, model_script in model_files.items():
-    model_path = os.path.join(models_path, model_name)
-    
-    if not os.path.exists(model_path):
-        print(f"⚠️ {model_name} not found. Training model...")
-        exec(f"from {model_script} import train_model; train_model()")  # Train model dynamically
-        print(f"✅ {model_name} trained and saved.")
-
-# Load trained models
-epc_model = joblib.load(os.path.join(models_path, "epc_cost_model.pkl"))
-grid_model = joblib.load(os.path.join(models_path, "grid_forecasting.pkl"))
-oil_gas_model = joblib.load(os.path.join(models_path, "oil_gas_monitoring.pkl"))
-maintenance_model = joblib.load(os.path.join(models_path, "predictive_maintenance.pkl"))
-procurement_model = joblib.load(os.path.join(models_path, "procurement_ai.pkl"))
-
-# Initialize FastAPI
+# ✅ Initialize FastAPI App
 app = FastAPI()
 
-# Endpoint to predict EPC Cost
+# ✅ Serve Frontend (HTML, CSS, JS from `static/`)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# ✅ Define Model Paths
+MODELS_DIR = "models"
+MODEL_FILES = {
+    "epc": "epc_cost_model.pkl",
+    "grid": "grid_forecasting.pkl",
+    "oil_gas": "oil_gas_monitoring.pkl",
+    "procurement": "procurement_ai.pkl",
+    "maintenance": "predictive_maintenance.pkl"
+}
+
+# ✅ Load Models with Error Handling
+models = {}
+for model_name, model_file in MODEL_FILES.items():
+    model_path = os.path.join(MODELS_DIR, model_file)
+    if os.path.exists(model_path):
+        models[model_name] = joblib.load(model_path)
+    else:
+        print(f"❌ ERROR: Missing model `{model_file}` in `/models/` folder!")
+
+# ✅ Input Data Schemas
+class EPCInput(BaseModel):
+    project_size_mw: float
+    material_cost: float
+    labor_cost: float
+    equipment_cost: float
+
+class GridInput(BaseModel):
+    hour: int
+    temperature: float
+    humidity: float
+
+class OilGasInput(BaseModel):
+    pipeline_age_years: int
+    pressure_drop: float
+    flow_rate: float
+
+class ProcurementInput(BaseModel):
+    price_per_unit: float
+    logistics_cost: float
+    material_type: str
+
+class MaintenanceInput(BaseModel):
+    machine_age_years: int
+    usage_hours: int
+    vibration: float
+    temperature: float
+
+# ✅ API Routes
+@app.get("/", response_class=HTMLResponse)
+async def serve_home():
+    """ Serve HTML Frontend """
+    with open("static/index.html", "r") as f:
+        return HTMLResponse(content=f.read(), status_code=200)
+
 @app.post("/predict/epc")
-def predict_epc(Project_Size_MW: float, Material_Cost: float, Labor_Cost: float, Equipment_Cost: float):
-    input_data = np.array([[Project_Size_MW, Material_Cost, Labor_Cost, Equipment_Cost]])
-    prediction = epc_model.predict(input_data)
-    return {"EPC_Cost_Estimate": prediction[0]}
+async def predict_epc(data: EPCInput):
+    """ Predict EPC Cost """
+    try:
+        model = models.get("epc")
+        if not model:
+            raise HTTPException(status_code=500, detail="EPC Model Not Found!")
+        
+        X = np.array([[data.project_size_mw, data.material_cost, data.labor_cost, data.equipment_cost]])
+        prediction = model.predict(X)[0]
+        return {"epc_cost_prediction": round(prediction, 2)}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
-# Endpoint to predict Grid Load Forecasting
 @app.post("/predict/grid")
-def predict_grid(Hour: int, Temperature: float, Humidity: float):
-    input_data = np.array([[Hour, Temperature, Humidity]])
-    prediction = grid_model.predict(input_data)
-    return {"Grid_Load_Forecast": prediction[0]}
+async def predict_grid(data: GridInput):
+    """ Predict Grid Load Forecasting """
+    try:
+        model = models.get("grid")
+        if not model:
+            raise HTTPException(status_code=500, detail="Grid Model Not Found!")
+        
+        X = np.array([[data.hour, data.temperature, data.humidity]])
+        prediction = model.predict(X)[0]
+        return {"grid_load_prediction": round(prediction, 2)}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
-# Endpoint to predict Oil & Gas Monitoring Risk
 @app.post("/predict/oil_gas")
-def predict_oil_gas(Pipeline_Age_Years: int, Pressure_Drop: float, Flow_Rate: float):
-    input_data = np.array([[Pipeline_Age_Years, Pressure_Drop, Flow_Rate]])
-    prediction = oil_gas_model.predict(input_data)
-    return {"Leak_Risk_Score": prediction[0]}
+async def predict_oil_gas(data: OilGasInput):
+    """ Predict Oil & Gas Leak Risk """
+    try:
+        model = models.get("oil_gas")
+        if not model:
+            raise HTTPException(status_code=500, detail="Oil & Gas Model Not Found!")
+        
+        X = np.array([[data.pipeline_age_years, data.pressure_drop, data.flow_rate]])
+        prediction = model.predict(X)[0]
+        return {"oil_gas_leak_risk": round(prediction, 4)}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
-# Endpoint to predict Predictive Maintenance Risk
-@app.post("/predict/maintenance")
-def predict_maintenance(Machine_Age_Years: int, Usage_Hours: int, Vibration: float, Temperature: float):
-    input_data = np.array([[Machine_Age_Years, Usage_Hours, Vibration, Temperature]])
-    prediction = maintenance_model.predict(input_data)
-    return {"Failure_Probability": prediction[0]}
-
-# Endpoint to predict Procurement Cost
 @app.post("/predict/procurement")
-def predict_procurement(Price_Per_Unit: float, Logistics_Cost: float):
-    input_data = np.array([[Price_Per_Unit, Logistics_Cost]])
-    prediction = procurement_model.predict(input_data)
-    return {"Procurement_Cost_Estimate": prediction[0]}
+async def predict_procurement(data: ProcurementInput):
+    """ Predict Procurement Cost """
+    try:
+        model = models.get("procurement")
+        if not model:
+            raise HTTPException(status_code=500, detail="Procurement Model Not Found!")
 
-# Root endpoint
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to Accepl.AI Prediction API"}
+        material_encoding = {"Steel": [1, 0, 0], "Cement": [0, 1, 0], "Cables": [0, 0, 1]}
+        material_one_hot = material_encoding.get(data.material_type, [0, 0, 0])
+
+        X = np.array([[data.price_per_unit, data.logistics_cost] + material_one_hot])
+        prediction = model.predict(X)[0]
+        return {"procurement_cost_prediction": round(prediction, 2)}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/predict/maintenance")
+async def predict_maintenance(data: MaintenanceInput):
+    """ Predict Machine Failure Probability """
+    try:
+        model = models.get("maintenance")
+        if not model:
+            raise HTTPException(status_code=500, detail="Predictive Maintenance Model Not Found!")
+
+        X = np.array([[data.machine_age_years, data.usage_hours, data.vibration, data.temperature]])
+        prediction = model.predict(X)[0]
+        return {"failure_probability": round(prediction, 4)}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
