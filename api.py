@@ -1,27 +1,33 @@
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-import pickle
-import numpy as np
+from pydantic import BaseModel
+import models.epc_cost_model as epc
+import models.grid_forecasting as grid
+import models.procurement_ai as procurement
+import models.predictive_maintenance as maintenance
+import models.oil_gas_monitoring as oil_gas
 
-# Create the FastAPI app
 app = FastAPI()
 
-# Serve static files (like index.html)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+class Query(BaseModel):
+    category: str
+    question: str
 
-# Load pre-trained model (update path if needed)
-with open('model.joblib', 'rb') as model_file:
-    model = pickle.load(model_file)
+@app.post("/query/")
+async def answer_question(query: Query):
+    category = query.category.lower()
+    question = query.question.lower()
 
-# Example route for prediction
-@app.get("/predict")
-def predict(project_scope: str, material_cost: float, labor_cost: float):
-    # Example prediction logic (replace with real feature engineering and prediction)
-    features = np.array([material_cost, labor_cost]).reshape(1, -1)
-    prediction = model.predict(features)
-    return {"project_scope": project_scope, "predicted_cost": prediction[0]}
+    if category == "epc":
+        response = epc.predict_cost(question)
+    elif category == "smart grid":
+        response = grid.forecast_load(question)
+    elif category == "procurement":
+        response = procurement.optimize_procurement(question)
+    elif category == "maintenance":
+        response = maintenance.predict_failures(question)
+    elif category == "oil & gas":
+        response = oil_gas.monitor_pipelines(question)
+    else:
+        response = "Invalid category. Please choose EPC, Smart Grid, Procurement, Maintenance, or Oil & Gas."
 
-# Route to serve index.html
-@app.get("/")
-def read_index():
-    return {"message": "Welcome to the AI-powered EPC app!"}
+    return {"answer": response}
