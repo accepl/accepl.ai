@@ -1,34 +1,34 @@
-import streamlit as st
+import logging
+import joblib
 import requests
+from fastapi import FastAPI
+from web import search
 
-st.set_page_config(page_title="🔥 Accepl.AI MVP", layout="wide")
+# ✅ Setup Logging
+logging.basicConfig(filename="logs/acceplai_api.log", level=logging.INFO)
 
-st.title("🚀 Accepl.AI MVP - AI-Powered EPC, Smart Grids, and Industrial Insights")
+# ✅ Load Models
+MODEL_DIR = "models"
+models = {
+    "epc": joblib.load(f"{MODEL_DIR}/epc_model.pkl"),
+    "smart_grid": joblib.load(f"{MODEL_DIR}/smart_grid_model.pkl"),
+    "telecom": joblib.load(f"{MODEL_DIR}/telecom_model.pkl"),
+    "oil_gas": joblib.load(f"{MODEL_DIR}/oil_gas_model.pkl"),
+    "finance": joblib.load(f"{MODEL_DIR}/financial_model.pkl"),
+}
 
-st.sidebar.header("Accepl.AI System Ready!")
-st.write("### 📝 Type your query below and get AI-driven insights.")
+app = FastAPI(title="🔥 Accepl.AI API", description="AI for EPC, Energy, Telecom, Oil & Gas, and Finance")
 
-# Define the API Base URL
-API_URL = "http://127.0.0.1:8000"
+@app.get("/")
+def home():
+    return {"status": "✅ Accepl.AI API Running!"}
 
-# Logging User Queries
-if "chat_log" not in st.session_state:
-    st.session_state.chat_log = []
-
-# User Input Section
-user_input = st.text_area("💬 Ask Accepl.AI about EPC, Energy, Telecom, Oil & Gas, or Finance.")
-
-if st.button("🔍 Get AI Response"):
-    if user_input:
-        api_url = f"{API_URL}/ai-query?query={user_input}"
-        response = requests.get(api_url)
-        
-        if response.status_code == 200:
-            ai_response = response.json()
-            st.session_state.chat_log.append(f"**You:** {user_input}\n**Accepl.AI:** {ai_response['response']}")
-        else:
-            st.error("⚠️ AI Server Error. Try again.")
-
-# Display Chat History
-for msg in st.session_state.chat_log:
-    st.write(msg)
+@app.get("/ai-query")
+def ai_query(query: str):
+    if "solar project cost" in query.lower():
+        return {"response": "To calculate Solar EPC cost, use /epc-cost/solar/{capacity_mw}"}
+    elif "market tariff" in query.lower():
+        tariff = search("current electricity tariff in India")
+        return {"response": f"Current electricity tariff: {tariff} INR/kWh"}
+    else:
+        return {"response": "AI Query Not Recognized"}
