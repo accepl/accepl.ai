@@ -1,19 +1,24 @@
-import os
+import numpy as np
 import pandas as pd
+from sklearn.linear_model import LinearRegression
 
-# Check if the file exists before trying to load it
-file_path = 'data.csv'
-if os.path.exists(file_path):
-    data = pd.read_csv(file_path)
-else:
-    print(f"Warning: {file_path} not found. Using a dummy dataset for testing.")
-    # Create a dummy dataset if the file does not exist (for testing)
-    data = pd.DataFrame({
-        'feature1': [1, 2, 3],
-        'feature2': [4, 5, 6],
-        'label': [0, 1, 0]
-    })
+# Example training data for cost estimation
+data = pd.DataFrame({
+    'material_cost_per_mw': [50, 60, 55, 65, 70],
+    'labor_cost_per_mw': [20, 25, 22, 24, 30],
+    'time_to_complete': [12, 14, 13, 16, 15],
+    'average_tariff': [4.5, 5.0, 4.7, 5.2, 5.3],
+    'roi': [12, 14, 13, 15, 16],
+})
 
-# Rest of your training logic
-print(data.head())  # Just to check if the data is loaded correctly
-# Proceed with model training...
+X = data[['material_cost_per_mw', 'labor_cost_per_mw', 'time_to_complete']]
+y = data[['roi', 'average_tariff']]
+
+# Model to predict ROI and Tariff
+model = LinearRegression()
+model.fit(X, y)
+
+def predict_roi_and_tariff(material_cost, labor_cost, time_to_complete):
+    prediction = model.predict(np.array([[material_cost, labor_cost, time_to_complete]]))
+    roi, tariff = prediction[0]
+    return roi, tariff
