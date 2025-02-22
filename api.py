@@ -10,10 +10,10 @@ import openai
 from flask import Flask, request, jsonify, send_from_directory
 
 # API Security Key (For Authentication)
-API_SECRET_KEY = "your_secret_key"
+API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "your_secret_key")
 
 # OpenAI API Key (For ChatGPT Fallback)
-openai.api_key = "your_openai_api_key"
+openai.api_key = os.environ.get("OPENAI_API_KEY", "your_openai_api_key")
 
 # Initialize Flask App
 app = Flask(__name__)
@@ -122,5 +122,7 @@ def index():
     </html>
     """
 
+# Start Server with Render-Compatible Port
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))  # Render assigns port dynamically
+    app.run(host="0.0.0.0", port=port, debug=True)
