@@ -1,47 +1,34 @@
-import os
-import joblib
-import numpy as np
-import logging
+import streamlit as st
 import requests
-from fastapi import FastAPI, HTTPException
-from web import search  # ✅ Web Search API for market data
 
-LOG_DIR = "logs"
-os.makedirs(LOG_DIR, exist_ok=True)
-logging.basicConfig(filename=os.path.join(LOG_DIR, "acceplai.log"), level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+st.set_page_config(page_title="🔥 Accepl.AI MVP", layout="wide")
 
-MODEL_DIR = "models"
-models = {
-    "epc": joblib.load(os.path.join(MODEL_DIR, "epc_model.pkl")),
-    "smart_grid": joblib.load(os.path.join(MODEL_DIR, "smart_grid_model.pkl")),
-    "telecom": joblib.load(os.path.join(MODEL_DIR, "telecom_model.pkl")),
-    "oil_gas": joblib.load(os.path.join(MODEL_DIR, "oil_gas_model.pkl")),
-    "finance": joblib.load(os.path.join(MODEL_DIR, "financial_model.pkl")),
-}
+st.title("🚀 Accepl.AI MVP - AI-Powered EPC, Smart Grids, and Industrial Insights")
 
-app = FastAPI(title="🔥 Accepl.AI MVP", description="AI for EPC, Energy, Telecom, and Financial Automation", version="3.0")
+st.sidebar.header("Accepl.AI System Ready!")
+st.write("### 📝 Type your query below and get AI-driven insights.")
 
-@app.get("/")
-def home():
-    return {"status": "✅ Accepl.AI MVP is Running!"}
+# Define the API Base URL
+API_URL = "http://127.0.0.1:8000"
 
-@app.get("/epc-cost/{project_type}/{capacity_mw}")
-def epc_cost(project_type: str, capacity_mw: float):
-    cost_per_mw = {"solar": 4, "wind": 6, "thermal": 8, "hydro": 10}.get(project_type.lower(), None)
-    if cost_per_mw is None:
-        raise HTTPException(status_code=400, detail="Invalid project type. Use 'solar', 'wind', 'thermal', 'hydro'.")
-    
-    total_cost = cost_per_mw * capacity_mw
-    avg_tariff = float(search(f"Current {project_type} energy tariff in India"))  # Web search for real tariff data
-    roi = round((avg_tariff * 25 * capacity_mw) / total_cost, 2)  # Approx ROI for 25-year lifecycle
-    irr = round((roi * 5) / 2, 2)  # Rough IRR estimation
+# Logging User Queries
+if "chat_log" not in st.session_state:
+    st.session_state.chat_log = []
 
-    return {
-        "project_type": project_type,
-        "capacity_mw": capacity_mw,
-        "total_cost_in_crores": total_cost,
-        "avg_market_tariff": avg_tariff,
-        "roi_25_years": roi,
-        "irr": irr
-    }
+# User Input Section
+user_input = st.text_area("💬 Ask Accepl.AI about EPC, Energy, Telecom, Oil & Gas, or Finance.")
+
+if st.button("🔍 Get AI Response"):
+    if user_input:
+        api_url = f"{API_URL}/ai-query?query={user_input}"
+        response = requests.get(api_url)
+        
+        if response.status_code == 200:
+            ai_response = response.json()
+            st.session_state.chat_log.append(f"**You:** {user_input}\n**Accepl.AI:** {ai_response['response']}")
+        else:
+            st.error("⚠️ AI Server Error. Try again.")
+
+# Display Chat History
+for msg in st.session_state.chat_log:
+    st.write(msg)
