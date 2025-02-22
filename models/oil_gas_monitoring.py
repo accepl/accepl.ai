@@ -1,9 +1,18 @@
-import random
+data = pd.DataFrame({
+    "Pipeline_Age_Years": np.random.randint(1, 50, 1000),
+    "Pressure_Drop": np.random.uniform(0.1, 10.0, 1000),
+    "Flow_Rate": np.random.uniform(100, 10000, 1000),
+    "Leak_Risk": np.random.uniform(0, 1, 1000)
+})
 
-def monitor_pipelines():
-    monitoring = {
-        "pipeline leak detection": "Pressure drop detected; potential leak at pipeline segment 34A.",
-        "refinery health check": "All refinery sensors indicate normal operations.",
-        "offshore drilling": "Increased vibration detected on offshore drilling unit; maintenance recommended."
-    }
-    return monitoring.get(random.choice(list(monitoring.keys())), "AI is analyzing pipeline conditions.")
+X = data.drop(columns=["Leak_Risk"])
+y = data["Leak_Risk"]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train model
+model = RandomForestRegressor(n_estimators=200, random_state=42)
+model.fit(X_train, y_train)
+
+# Save model
+joblib.dump(model, "models/oil_gas_monitoring.pkl")
