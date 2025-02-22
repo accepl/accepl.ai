@@ -2,13 +2,18 @@ import os
 import joblib
 import pandas as pd
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sklearn.ensemble import RandomForestRegressor, IsolationForest
 from sklearn.model_selection import train_test_split
+from fastapi.staticfiles import StaticFiles
 
 # 📌 FastAPI App
-app = FastAPI(title="🔥 AI-Powered EPC, Smart Grid & Industrial Predictions API")
+app = FastAPI(title="🔥 AI-Powered Predictions API")
+
+# 📌 Serve Static Files (For LOGO & Frontend)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 📌 Ensure models directory exists
 os.makedirs("models", exist_ok=True)
@@ -69,14 +74,6 @@ def generate_training_data(model_name):
             "Failure_Probability": np.random.uniform(0, 1, 1000)
         }), "Failure_Probability"
 
-    elif model_name == "anomaly_detection":
-        return pd.DataFrame({
-            "Sensor_1": np.random.normal(0, 1, 1000),
-            "Sensor_2": np.random.normal(0, 1, 1000),
-            "Sensor_3": np.random.normal(0, 1, 1000),
-            "Anomaly_Score": np.random.uniform(0, 1, 1000)
-        }), "Anomaly_Score"
-
     return None, None
 
 # 📌 Train & Save Models
@@ -89,11 +86,7 @@ def train_model(model_name):
     X = data.drop(columns=[target])
     y = data[target]
 
-    if model_name == "anomaly_detection":
-        model = IsolationForest(contamination=0.05)
-    else:
-        model = RandomForestRegressor(n_estimators=100, random_state=42)
-
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X, y)
     joblib.dump(model, MODEL_PATHS[model_name])
     print(f"✅ Model '{model_name}' trained & saved!")
@@ -133,16 +126,50 @@ def predict(input_data: InputData):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
-# 📌 Retrain Model
-@app.post("/retrain/")
-def retrain(model_name: str):
-    if model_name not in MODEL_PATHS:
-        raise HTTPException(status_code=400, detail="Invalid model name!")
-
-    train_model(model_name)
-    return {"status": "success", "message": f"Model '{model_name}' retrained successfully!"}
-
-# 📌 Root Endpoint
-@app.get("/")
-def home():
-    return {"message": "🔥 AI API with Auto-Training, Predictions, and More!"}
+# 📌 GPT-Like Chat UI
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    return """
+    <html>
+        <head>
+            <title>🔥 AI Prediction Platform</title>
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; padding: 20px; }
+                .container { width: 50%; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0px 0px 10px gray; }
+                img { width: 100px; }
+                input, select { width: 80%; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid gray; }
+                button { padding: 10px; border: none; background: blue; color: white; border-radius: 5px; cursor: pointer; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <img src='/static/logo.jpg' alt="Logo">
+                <h1>🔥 AI Prediction Platform</h1>
+                <label for="model">Select AI Model:</label>
+                <select id="model">
+                    <option value="epc_cost">Predict EPC Cost</option>
+                    <option value="grid_forecasting">Smart Grid Forecast</option>
+                    <option value="oil_gas_monitoring">Oil & Gas Monitoring</option>
+                    <option value="procurement_ai">Procurement AI</option>
+                    <option value="predictive_maintenance">Predictive Maintenance</option>
+                </select>
+                <input type="text" id="inputData" placeholder="Enter values (JSON format)">
+                <button onclick="predict()">Get Prediction</button>
+                <h3 id="result"></h3>
+            </div>
+            <script>
+                function predict() {
+                    let model = document.getElementById("model").value;
+                    let inputData = document.getElementById("inputData").value;
+                    fetch("/predict/", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ model_name: model, data: JSON.parse(inputData) })
+                    }).then(response => response.json()).then(data => {
+                        document.getElementById("result").innerText = "Prediction: " + data.prediction;
+                    }).catch(err => console.error(err));
+                }
+            </script>
+        </body>
+    </html>
+    """
