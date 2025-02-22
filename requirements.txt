@@ -13,4 +13,3 @@ duckduckgo-search
 unidecode
 textblob
 langdetect
-nltk
