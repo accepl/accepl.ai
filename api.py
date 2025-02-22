@@ -1,122 +1,111 @@
-import os
+from fastapi import FastAPI, Query
+from fastapi.responses import HTMLResponse
 import joblib
-import numpy as np
-import pandas as pd
-import uvicorn
-from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel
-from typing import Optional
-from duckduckgo_search import DuckDuckGoSearch
 import requests
-import traceback
-import unidecode
-from textblob import TextBlob
+from duckduckgo_search import ddg
+import textblob
 import re
 
 app = FastAPI()
 
-# ✅ Load trained AI models
-models_path = "models"
-epc_model = joblib.load(os.path.join(models_path, "epc_cost_model.pkl"))
-grid_model = joblib.load(os.path.join(models_path, "grid_load_model.pkl"))
-oil_gas_model = joblib.load(os.path.join(models_path, "oil_gas_model.pkl"))
-telecom_model = joblib.load(os.path.join(models_path, "telecom_model.pkl"))
-ipp_model = joblib.load(os.path.join(models_path, "ipp_model.pkl"))
+# Load AI Models (Ensure these exist in models/)
+models = {
+    "epc": joblib.load("models/epc_cost_model.pkl"),
+    "grid": joblib.load("models/grid_load_model.pkl"),
+    "oil_gas": joblib.load("models/oil_gas_model.pkl"),
+    "telecom": joblib.load("models/telecom_model.pkl"),
+    "ipp": joblib.load("models/ipp_model.pkl"),
+}
 
-# ✅ Define request body format
-class PredictionRequest(BaseModel):
-    query: str
-    industry: Optional[str] = None
+# Typo Correction
+def correct_query(query):
+    blob = textblob.TextBlob(query)
+    return str(blob.correct())
 
-# ✅ Web Search Function
+# Web Search
 def web_search(query):
-    try:
-        search_results = DuckDuckGoSearch().search(query, max_results=3)
-        return "\n".join([f"{r['title']}: {r['href']}" for r in search_results])
-    except Exception as e:
-        return f"Web search failed: {str(e)}"
+    results = ddg(query, max_results=3)
+    return results if results else "No relevant search results found."
 
-# ✅ Typo Handling & Smart Query Understanding
-def correct_text(text):
-    corrected = TextBlob(text).correct()
-    return str(corrected)
+# AI Prediction Handler
+def predict(query):
+    query_lower = query.lower()
 
-# ✅ Error Debugging & Explanation
-def handle_error(e):
-    return f"Error occurred: {str(e)}\n{traceback.format_exc()}"
+    if "epc" in query_lower:
+        return models["epc"].predict([[1]])[0]
+    elif "grid" in query_lower:
+        return models["grid"].predict([[1]])[0]
+    elif "oil" in query_lower or "gas" in query_lower:
+        return models["oil_gas"].predict([[1]])[0]
+    elif "telecom" in query_lower:
+        return models["telecom"].predict([[1]])[0]
+    elif "ipp" in query_lower:
+        return models["ipp"].predict([[1]])[0]
+    
+    return "No matching AI prediction found."
 
-# ✅ Industry Prediction Logic
-def predict_value(query, industry):
-    try:
-        query = correct_text(query).lower()
+# Frontend UI
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Accepl.AI</title>
+        <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+            input { width: 80%; padding: 10px; margin: 10px; }
+            button { padding: 10px; cursor: pointer; }
+            #response { margin-top: 20px; text-align: left; }
+        </style>
+    </head>
+    <body>
+        <h1>Accepl.AI - AI Predictions & Web Search</h1>
+        <img src="static/logo.jpg" alt="Logo" width="200">
+        
+        <input type="text" id="userInput" placeholder="Enter your query...">
+        <button onclick="getResponse()">Ask AI</button>
 
-        if "epc" in industry:
-            return {"Prediction": epc_model.predict([[np.random.rand()]])[0]}
-        elif "grid" in industry:
-            return {"Prediction": grid_model.predict([[np.random.rand()]])[0]}
-        elif "oil" in industry or "gas" in industry:
-            return {"Prediction": oil_gas_model.predict([[np.random.rand()]])[0]}
-        elif "telecom" in industry:
-            return {"Prediction": telecom_model.predict([[np.random.rand()]])[0]}
-        elif "ipp" in industry:
-            return {"Prediction": ipp_model.predict([[np.random.rand()]])[0]}
-        else:
-            return {"Error": "Industry not recognized"}
-    except Exception as e:
-        return handle_error(e)
+        <div id="response"></div>
 
-# ✅ AI-Powered Financial Projections
-def generate_financial_projections(industry):
-    try:
-        projections = {
-            "EPC": {
-                "Contract Value": np.random.randint(100, 500),
-                "Progress Billing": np.random.randint(10, 100),
-                "Retention Money": np.random.randint(5, 50),
-                "Variation Orders": np.random.randint(5, 25),
-            },
-            "IPP": {
-                "PPA Tariffs": np.random.uniform(3.5, 6.5),
-                "Capacity Factor": np.random.uniform(30, 70),
-                "Fuel Cost Projections": np.random.randint(100, 500),
-                "O&M Costs": np.random.randint(50, 200),
-            },
-            "Oil & Gas": {
-                "Reserve Estimates": np.random.randint(500, 2000),
-                "Production Profiles": np.random.randint(100, 800),
-                "Commodity Price Forecasts": np.random.randint(50, 150),
-            },
-            "Telecom": {
-                "Subscriber Acquisition Cost": np.random.randint(50, 200),
-                "Network Rollout Costs": np.random.randint(500, 5000),
-                "Spectrum Licensing Fees": np.random.randint(100, 1000),
+        <script>
+            async function getResponse() {
+                let input = document.getElementById('userInput').value;
+                let responseDiv = document.getElementById('response');
+
+                responseDiv.innerHTML = "Thinking...";
+
+                let res = await fetch(`/query?input_text=${encodeURIComponent(input)}`);
+                let data = await res.json();
+
+                responseDiv.innerHTML = `
+                    <h3>AI Prediction:</h3> <p>${data.ai_prediction}</p>
+                    <h3>Web Search:</h3> <p>${data.web_search[0]?.title || "No results"}</p>
+                    <p>${data.web_search[0]?.href || ""}</p>
+                    <h3>Corrected Query:</h3> <p>${data.query_corrected}</p>
+                `;
             }
-        }
-        return projections.get(industry, {"Error": "Industry not recognized"})
-    except Exception as e:
-        return handle_error(e)
+        </script>
+    </body>
+    </html>
+    """
 
-# ✅ API Endpoint: AI Query Processing
-@app.post("/predict")
-def predict(data: PredictionRequest):
-    try:
-        if data.industry:
-            return predict_value(data.query, data.industry)
-        else:
-            return {"Error": "Industry must be specified"}
-    except Exception as e:
-        return handle_error(e)
+@app.get("/query")
+def ai_query(input_text: str = Query(..., min_length=3)):
+    # Correct Typo
+    corrected = correct_query(input_text)
 
-# ✅ API Endpoint: Web Search
-@app.get("/search")
-def search(query: str):
-    return {"Results": web_search(query)}
+    # Search Web
+    search_results = web_search(corrected)
 
-# ✅ API Endpoint: Financial Projections
-@app.get("/financials")
-def financials(industry: str = Query(..., description="Industry Name")):
-    return generate_financial_projections(industry)
+    # AI Prediction
+    ai_response = predict(corrected)
 
-# ✅ Run Server
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    return {
+        "query_original": input_text,
+        "query_corrected": corrected,
+        "ai_prediction": ai_response,
+        "web_search": search_results
+    }
