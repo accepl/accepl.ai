@@ -1,111 +1,119 @@
-from fastapi import FastAPI, Query
-from fastapi.responses import HTMLResponse
-import joblib
+from fastapi import FastAPI, Form
+from pydantic import BaseModel
+import uvicorn
 import requests
-from duckduckgo_search import ddg
-import textblob
-import re
+import json
+import numpy as np
+import pandas as pd
+import joblib
+import traceback
+from fastapi.responses import HTMLResponse
+from bs4 import BeautifulSoup
+from langdetect import detect
 
+# Initialize FastAPI app
 app = FastAPI()
 
-# Load AI Models (Ensure these exist in models/)
+# Load trained models (dummy placeholders for now)
 models = {
-    "epc": joblib.load("models/epc_cost_model.pkl"),
-    "grid": joblib.load("models/grid_load_model.pkl"),
-    "oil_gas": joblib.load("models/oil_gas_model.pkl"),
-    "telecom": joblib.load("models/telecom_model.pkl"),
-    "ipp": joblib.load("models/ipp_model.pkl"),
+    "epc": joblib.load("models/epc_model.pkl") if "models/epc_model.pkl" else None,
+    "grid": joblib.load("models/grid_model.pkl") if "models/grid_model.pkl" else None,
+    "oil_gas": joblib.load("models/oil_gas_model.pkl") if "models/oil_gas_model.pkl" else None,
+    "telecom": joblib.load("models/telecom_model.pkl") if "models/telecom_model.pkl" else None,
+    "ipp": joblib.load("models/ipp_model.pkl") if "models/ipp_model.pkl" else None,
 }
 
-# Typo Correction
-def correct_query(query):
-    blob = textblob.TextBlob(query)
-    return str(blob.correct())
+# Web-based UI with input prompt
+HTML_FORM = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Chat Interface</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 50px; text-align: center; }
+        input { width: 400px; padding: 10px; font-size: 16px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        .response { margin-top: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>AI Chat Interface</h1>
+    <form action="/query" method="post">
+        <input type="text" name="query" placeholder="Ask something..." required>
+        <button type="submit">Submit</button>
+    </form>
+    <div class="response" id="response"></div>
+</body>
+</html>
+"""
 
-# Web Search
-def web_search(query):
-    results = ddg(query, max_results=3)
-    return results if results else "No relevant search results found."
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    return HTML_FORM
 
-# AI Prediction Handler
-def predict(query):
+@app.post("/query")
+async def handle_query(query: str = Form(...)):
+    try:
+        response = process_query(query)
+        return {"response": response}
+    except Exception as e:
+        return {"error": f"Error processing request: {str(e)}"}
+
+def process_query(query):
+    """Processes the user query and routes it accordingly."""
     query_lower = query.lower()
 
     if "epc" in query_lower:
-        return models["epc"].predict([[1]])[0]
+        return run_prediction("epc", query)
     elif "grid" in query_lower:
-        return models["grid"].predict([[1]])[0]
+        return run_prediction("grid", query)
     elif "oil" in query_lower or "gas" in query_lower:
-        return models["oil_gas"].predict([[1]])[0]
+        return run_prediction("oil_gas", query)
     elif "telecom" in query_lower:
-        return models["telecom"].predict([[1]])[0]
+        return run_prediction("telecom", query)
     elif "ipp" in query_lower:
-        return models["ipp"].predict([[1]])[0]
-    
-    return "No matching AI prediction found."
+        return run_prediction("ipp", query)
+    elif "financial" in query_lower:
+        return get_financial_projections()
+    elif "search" in query_lower:
+        return web_search(query.replace("search", "").strip())
+    else:
+        return "I couldn't understand your request. Try asking about EPC, Grid, Oil & Gas, Telecom, IPP, or Financial Projections."
 
-# Frontend UI
-@app.get("/", response_class=HTMLResponse)
-def home():
-    return """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Accepl.AI</title>
-        <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            input { width: 80%; padding: 10px; margin: 10px; }
-            button { padding: 10px; cursor: pointer; }
-            #response { margin-top: 20px; text-align: left; }
-        </style>
-    </head>
-    <body>
-        <h1>Accepl.AI - AI Predictions & Web Search</h1>
-        <img src="static/logo.jpg" alt="Logo" width="200">
-        
-        <input type="text" id="userInput" placeholder="Enter your query...">
-        <button onclick="getResponse()">Ask AI</button>
+def run_prediction(model_name, query):
+    """Runs AI prediction for a specific model."""
+    try:
+        model = models.get(model_name)
+        if model:
+            sample_input = np.random.rand(1, 10)  # Dummy input, replace with real data
+            prediction = model.predict(sample_input)
+            return f"{model_name.upper()} Prediction: {prediction.tolist()}"
+        else:
+            return f"Model for {model_name.upper()} is not available."
+    except Exception as e:
+        return f"Error running prediction: {str(e)}"
 
-        <div id="response"></div>
-
-        <script>
-            async function getResponse() {
-                let input = document.getElementById('userInput').value;
-                let responseDiv = document.getElementById('response');
-
-                responseDiv.innerHTML = "Thinking...";
-
-                let res = await fetch(`/query?input_text=${encodeURIComponent(input)}`);
-                let data = await res.json();
-
-                responseDiv.innerHTML = `
-                    <h3>AI Prediction:</h3> <p>${data.ai_prediction}</p>
-                    <h3>Web Search:</h3> <p>${data.web_search[0]?.title || "No results"}</p>
-                    <p>${data.web_search[0]?.href || ""}</p>
-                    <h3>Corrected Query:</h3> <p>${data.query_corrected}</p>
-                `;
-            }
-        </script>
-    </body>
-    </html>
-    """
-
-@app.get("/query")
-def ai_query(input_text: str = Query(..., min_length=3)):
-    # Correct Typo
-    corrected = correct_query(input_text)
-
-    # Search Web
-    search_results = web_search(corrected)
-
-    # AI Prediction
-    ai_response = predict(corrected)
-
-    return {
-        "query_original": input_text,
-        "query_corrected": corrected,
-        "ai_prediction": ai_response,
-        "web_search": search_results
+def get_financial_projections():
+    """Returns financial projections (Dummy Data)."""
+    data = {
+        "EPC Revenue": "₹1,50,000 Crore per year",
+        "IPP Expansion": "40 GW+",
+        "Oil & Gas Revenue": "₹75,000 Crore per year",
+        "Telecom Expansion": "₹35,000 Crore per year"
     }
+    return json.dumps(data, indent=2)
+
+def web_search(query):
+    """Fetches real-time data from the web."""
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        search_url = f"https://www.google.com/search?q={query}"
+        response = requests.get(search_url, headers=headers)
+        soup = BeautifulSoup(response.text, "html.parser")
+        results = [a.text for a in soup.find_all("h3")[:5]]
+        return results if results else "No search results found."
+    except Exception as e:
+        return f"Web search failed: {str(e)}"
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
