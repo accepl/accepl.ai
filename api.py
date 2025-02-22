@@ -1,34 +1,26 @@
-from flask import Flask, request, jsonify
-import os
+import joblib
+from fastapi import FastAPI
+from pydantic import BaseModel
+import numpy as np
 
-# Initialize Flask app
-app = Flask(__name__)
+app = FastAPI()
 
-# Example AI model - Replace with your actual model code
-# This is a placeholder function for demonstration purposes
-def get_ai_response(user_input):
-    # Replace this function with your actual model inference code
-    # For example: result = your_model.predict(user_input)
-    return f"This is a response to your input: {user_input}"
+# Load the trained model when the app starts
+model = joblib.load('model.joblib')
 
-# API route for handling user input and returning AI responses
-@app.route('/predict', methods=['POST'])
-def predict():
-    # Extract input from the request
-    data = request.get_json()
-    user_input = data.get('input', '')
+class InputData(BaseModel):
+    # Define your input data structure based on the model's features
+    feature_1: float
+    feature_2: float
+    feature_3: float
+    # Add all the features used for training
 
-    # Ensure input is not empty
-    if not user_input:
-        return jsonify({'error': 'No input provided'}), 400
+@app.post("/predict")
+async def predict(data: InputData):
+    # Convert input data to a numpy array
+    input_data = np.array([[data.feature_1, data.feature_2, data.feature_3]])  # Add more features as needed
     
-    # Get AI response based on the user input
-    response = get_ai_response(user_input)
-
-    # Return the prediction as a JSON response
-    return jsonify({'prediction': response})
-
-# Dynamic port for deployment (works for Render)
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 8000))  # Get the port from Render environment or default to 8000
-    app.run(debug=True, host="0.0.0.0", port=port)  # Bind to 0.0.0.0 for accessibility
+    # Get the prediction
+    prediction = model.predict(input_data)
+    
+    return {"prediction": prediction[0]}
