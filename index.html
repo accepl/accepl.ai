@@ -1,0 +1,78 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accepl.AI Chatbot</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    .chat-container {
+      width: 80%;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+    }
+    .chat-box {
+      height: 300px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background-color: #fff;
+      border-radius: 5px;
+    }
+    .input-box {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="chat-container">
+  <div class="chat-box" id="chat-box"></div>
+  <input type="text" id="user-input" class="input-box" placeholder="Type your message..." onkeyup="checkInput(event)">
+</div>
+
+<script>
+  async function sendMessage(input) {
+    const responseBox = document.getElementById("chat-box");
+    const userMessage = `<div><strong>You:</strong> ${input}</div>`;
+    responseBox.innerHTML += userMessage;
+    document.getElementById("user-input").value = '';
+
+    // Send the input to your API endpoint
+    const response = await fetch("https://accepl-ai.onrender.com/predict", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ input: input })
+    });
+
+    const result = await response.json();
+    const aiMessage = `<div><strong>AI:</strong> ${result.prediction}</div>`;
+    responseBox.innerHTML += aiMessage;
+    responseBox.scrollTop = responseBox.scrollHeight;
+  }
+
+  function checkInput(event) {
+    if (event.key === 'Enter') {
+      const input = document.getElementById("user-input").value;
+      if (input.trim() !== '') {
+        sendMessage(input);
+      }
+    }
+  }
+</script>
+
+</body>
+</html>
