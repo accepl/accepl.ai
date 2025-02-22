@@ -1,119 +1,88 @@
-from fastapi import FastAPI, Form
-from pydantic import BaseModel
-import uvicorn
-import requests
-import json
+from fastapi import FastAPI, Request, Form
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+import joblib
 import numpy as np
 import pandas as pd
-import joblib
-import traceback
-from fastapi.responses import HTMLResponse
+import uvicorn
+from pydantic import BaseModel
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+import requests
 from bs4 import BeautifulSoup
-from langdetect import detect
 
-# Initialize FastAPI app
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Load trained models (dummy placeholders for now)
-models = {
-    "epc": joblib.load("models/epc_model.pkl") if "models/epc_model.pkl" else None,
-    "grid": joblib.load("models/grid_model.pkl") if "models/grid_model.pkl" else None,
-    "oil_gas": joblib.load("models/oil_gas_model.pkl") if "models/oil_gas_model.pkl" else None,
-    "telecom": joblib.load("models/telecom_model.pkl") if "models/telecom_model.pkl" else None,
-    "ipp": joblib.load("models/ipp_model.pkl") if "models/ipp_model.pkl" else None,
-}
+# Automatically Train Model if None Exists
+def train_model():
+    np.random.seed(42)
+    X = np.random.rand(1000, 5)  # Synthetic Data
+    y = X[:, 0] * 100 + np.random.rand(1000) * 10  # Synthetic Target
+    
+    model = RandomForestRegressor(n_estimators=100)
+    model.fit(X, y)
+    return model
 
-# Web-based UI with input prompt
-HTML_FORM = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>AI Chat Interface</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 50px; text-align: center; }
-        input { width: 400px; padding: 10px; font-size: 16px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
-        .response { margin-top: 20px; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <h1>AI Chat Interface</h1>
-    <form action="/query" method="post">
-        <input type="text" name="query" placeholder="Ask something..." required>
-        <button type="submit">Submit</button>
-    </form>
-    <div class="response" id="response"></div>
-</body>
-</html>
-"""
+model = train_model()
 
+# Prediction API Endpoint
+class InputData(BaseModel):
+    feature1: float
+    feature2: float
+    feature3: float
+    feature4: float
+    feature5: float
+
+@app.post("/predict")
+def predict(data: InputData):
+    input_features = np.array([[data.feature1, data.feature2, data.feature3, data.feature4, data.feature5]])
+    prediction = model.predict(input_features)[0]
+    return {"prediction": prediction}
+
+# Web Search API Endpoint
+@app.get("/search")
+def search(query: str):
+    url = f"https://www.google.com/search?q={query}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.text, "html.parser")
+    results = [link.text for link in soup.find_all("h3")]
+    return {"results": results[:5]}  # Return top 5 results
+
+# Web-Based UI
 @app.get("/", response_class=HTMLResponse)
-async def home():
-    return HTML_FORM
-
-@app.post("/query")
-async def handle_query(query: str = Form(...)):
-    try:
-        response = process_query(query)
-        return {"response": response}
-    except Exception as e:
-        return {"error": f"Error processing request: {str(e)}"}
-
-def process_query(query):
-    """Processes the user query and routes it accordingly."""
-    query_lower = query.lower()
-
-    if "epc" in query_lower:
-        return run_prediction("epc", query)
-    elif "grid" in query_lower:
-        return run_prediction("grid", query)
-    elif "oil" in query_lower or "gas" in query_lower:
-        return run_prediction("oil_gas", query)
-    elif "telecom" in query_lower:
-        return run_prediction("telecom", query)
-    elif "ipp" in query_lower:
-        return run_prediction("ipp", query)
-    elif "financial" in query_lower:
-        return get_financial_projections()
-    elif "search" in query_lower:
-        return web_search(query.replace("search", "").strip())
-    else:
-        return "I couldn't understand your request. Try asking about EPC, Grid, Oil & Gas, Telecom, IPP, or Financial Projections."
-
-def run_prediction(model_name, query):
-    """Runs AI prediction for a specific model."""
-    try:
-        model = models.get(model_name)
-        if model:
-            sample_input = np.random.rand(1, 10)  # Dummy input, replace with real data
-            prediction = model.predict(sample_input)
-            return f"{model_name.upper()} Prediction: {prediction.tolist()}"
-        else:
-            return f"Model for {model_name.upper()} is not available."
-    except Exception as e:
-        return f"Error running prediction: {str(e)}"
-
-def get_financial_projections():
-    """Returns financial projections (Dummy Data)."""
-    data = {
-        "EPC Revenue": "₹1,50,000 Crore per year",
-        "IPP Expansion": "40 GW+",
-        "Oil & Gas Revenue": "₹75,000 Crore per year",
-        "Telecom Expansion": "₹35,000 Crore per year"
-    }
-    return json.dumps(data, indent=2)
-
-def web_search(query):
-    """Fetches real-time data from the web."""
-    try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        search_url = f"https://www.google.com/search?q={query}"
-        response = requests.get(search_url, headers=headers)
-        soup = BeautifulSoup(response.text, "html.parser")
-        results = [a.text for a in soup.find_all("h3")[:5]]
-        return results if results else "No search results found."
-    except Exception as e:
-        return f"Web search failed: {str(e)}"
+def home():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Accepl.AI</title>
+        <style>
+            body { font-family: Arial, sans-serif; text-align: center; }
+            img { width: 200px; margin-bottom: 20px; }
+            input, button { padding: 10px; margin: 5px; }
+        </style>
+    </head>
+    <body>
+        <img src="/static/logo.jpg" alt="Accepl.AI Logo">
+        <h1>AI Predictions & Web Search</h1>
+        <form action="/predict" method="post">
+            <input type="text" name="feature1" placeholder="Feature 1" required>
+            <input type="text" name="feature2" placeholder="Feature 2" required>
+            <input type="text" name="feature3" placeholder="Feature 3" required>
+            <input type="text" name="feature4" placeholder="Feature 4" required>
+            <input type="text" name="feature5" placeholder="Feature 5" required>
+            <button type="submit">Predict</button>
+        </form>
+        <form action="/search" method="get">
+            <input type="text" name="query" placeholder="Search the web" required>
+            <button type="submit">Search</button>
+        </form>
+    </body>
+    </html>
+    """
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
