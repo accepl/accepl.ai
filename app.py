@@ -3,36 +3,32 @@ import requests
 
 st.set_page_config(page_title="🔥 Accepl.AI MVP", layout="wide")
 
-st.title("🚀 Accepl.AI MVP - AI Chat for Industrial & Financial Automation")
+st.title("🚀 Accepl.AI MVP - AI-Powered EPC, Smart Grids, and Industrial Insights")
 
-st.sidebar.header("AI System Ready!")
-st.write("### 📝 Type your question below and get AI-powered insights instantly.")
+st.sidebar.header("Accepl.AI System Ready!")
+st.write("### 📝 Type your query below and get AI-driven insights.")
 
-# User input
-user_input = st.text_area("💬 Ask Accepl.AI anything about energy, finance, maintenance, logistics, workforce, or risk.")
+# Define the API Base URL
+API_URL = "http://127.0.0.1:8000"
+
+# Logging User Queries
+if "chat_log" not in st.session_state:
+    st.session_state.chat_log = []
+
+# User Input Section
+user_input = st.text_area("💬 Ask Accepl.AI about EPC, Energy, Telecom, Oil & Gas, or Finance.")
 
 if st.button("🔍 Get AI Response"):
-    endpoint_mapping = {
-        "energy": "energy-grid-forecast",
-        "power": "energy-grid-forecast",
-        "grid": "energy-grid-forecast",
-        "bess": "bess-optimization",
-        "battery": "bess-optimization",
-        "maintenance": "predictive-maintenance",
-        "finance": "financial-forecast",
-        "risk": "risk-assessment",
-        "workforce": "workforce-allocation"
-    }
-
-    selected_endpoint = next((endpoint_mapping[key] for key in endpoint_mapping if key in user_input.lower()), None)
-
-    if selected_endpoint:
-        api_url = f"http://127.0.0.1:8000/{selected_endpoint}"
+    if user_input:
+        api_url = f"{API_URL}/ai-query?query={user_input}"
         response = requests.get(api_url)
+        
         if response.status_code == 200:
-            st.success("✅ AI Response Generated:")
-            st.json(response.json())
+            ai_response = response.json()
+            st.session_state.chat_log.append(f"**You:** {user_input}\n**Accepl.AI:** {ai_response['response']}")
         else:
-            st.error(f"Error: {response.status_code}")
-    else:
-        st.warning("⚠️ Could not understand the question. Try again!")
+            st.error("⚠️ AI Server Error. Try again.")
+
+# Display Chat History
+for msg in st.session_state.chat_log:
+    st.write(msg)
