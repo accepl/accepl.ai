@@ -5,5 +5,5 @@ pandas
 numpy
 joblib
 xgboost
-python-multipart  # Required for handling form inputs
-jinja2  # For rendering the front-end UI inside API
+jinja2
+python-multipart
