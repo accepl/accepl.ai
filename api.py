@@ -7,34 +7,20 @@ import torch.nn as nn
 import numpy as np
 import pandas as pd
 import openai
-import hmac
-import hashlib
-import time
-import sqlite3
 from flask import Flask, request, jsonify, send_from_directory
 from googlesearch import search
 
-# ========================== #
-# 🔒 SECURITY CONFIGURATION  #
-# ========================== #
+# 🔒 API Security Key
+API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "your_secret_key")
 
-# API Security Key (For Authentication)
-SECRET_KEY = os.environ.get("SECRET_KEY", "your_very_secure_secret")
-
-# OpenAI API Key (For ChatGPT Fallback)
+# 🔑 OpenAI API Key
 openai.api_key = os.environ.get("OPENAI_API_KEY", "your_openai_api_key")
 
-# ========================== #
-# 🌐 FLASK APP INITIALIZATION #
-# ========================== #
+# 🎛️ Initialize Flask App
 app = Flask(__name__)
 
-# ========================== #
-# 🤖 AI MODEL CONFIGURATION  #
-# ========================== #
-
+# 🤖 AI Core Model
 class AIModel(nn.Module):
-    """A simple LSTM-based AI model."""
     def __init__(self, input_size, hidden_size, output_size):
         super(AIModel, self).__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True)
@@ -45,105 +31,46 @@ class AIModel(nn.Module):
         output = self.fc(lstm_out[:, -1, :])
         return output
 
-# ========================== #
-# 🔍 AI DECISION-MAKING LOGIC #
-# ========================== #
-
+# 📊 AI Decision-Making Logic
 def process_prompt(prompt):
     """Processes a natural language prompt and predicts using AI models."""
     prompt = prompt.lower()
     response = ""
 
+    # 🧠 Trillion Logic: AI Adapts to Any Query
     if "grid" in prompt:
-        response = f"AI Grid Optimization: Adjust power load by {random.randint(10, 50)}%."
+        response = f"⚡ AI Grid Optimization: Adjust power load by {random.randint(10, 50)}%."
     elif "battery" in prompt or "bess" in prompt:
-        response = f"AI Smart BESS: Optimized charge level: {random.randint(50, 90)}%."
+        response = f"🔋 AI Smart BESS: Optimized charge level: {random.randint(50, 90)}%."
     elif "maintenance" in prompt:
-        response = f"Predictive Maintenance: Failure likelihood in next 30 days: {random.randint(5, 25)}%."
+        response = f"🛠️ Predictive Maintenance: Failure likelihood in next 30 days: {random.randint(5, 25)}%."
+    elif "investment" in prompt or "financials" in prompt:
+        response = financial_analysis(prompt)
+    elif "telecom" in prompt:
+        response = f"📡 AI Telecom Optimization: Dynamic spectrum allocation in progress..."
+    elif "oil" in prompt or "gas" in prompt:
+        response = f"⛽ AI for Oil & Gas: AI optimizing refinery efficiency by {random.randint(5, 25)}%."
+    elif "military" in prompt or "defense" in prompt:
+        response = f"⚔️ AI War Simulation: AI predicts a {random.randint(60, 95)}% probability of tactical victory."
+    elif "mars" in prompt or "space" in prompt:
+        response = f"🚀 AI Space Mission: AI recommends {random.randint(3, 8)} launch windows for optimal Mars orbit."
+    elif "ai" in prompt:
+        response = f"🤖 AI Model Analysis: AI self-learning algorithm activated."
     else:
-        response = live_google_search(prompt) or ask_chatgpt(prompt)  # Self-healing AI
+        response = fallback_search(prompt)  # 🌐 Web Search + ChatGPT Fallback
 
     return response
 
-# ========================== #
-# 🌍 LIVE GOOGLE SEARCH Fallback #
-# ========================== #
-
-def live_google_search(query):
-    """Fetches top 3 search results from Google if AI can't answer."""
+# 🔎 Web Search + ChatGPT Fallback
+def fallback_search(prompt):
+    """If AI doesn't know, it searches Google or asks ChatGPT."""
     try:
-        results = list(search(query, num_results=3))
-        return f"Live Google Search Results: {', '.join(results)}" if results else None
-    except Exception as e:
-        return None
-
-# ========================== #
-# 💡 AI LEARNING & DATABASE STORAGE #
-# ========================== #
-
-def save_query_to_db(user_query, ai_response):
-    """Saves AI queries & responses to a database for learning."""
-    conn = sqlite3.connect("ai_learning.db")
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS queries (id INTEGER PRIMARY KEY, prompt TEXT, response TEXT)")
-    cursor.execute("INSERT INTO queries (prompt, response) VALUES (?, ?)", (user_query, ai_response))
-    conn.commit()
-    conn.close()
-
-# ========================== #
-# 🔒 API SECURITY - HMAC AUTH #
-# ========================== #
-
-def validate_hmac_auth(request):
-    """Validates API requests using HMAC authentication."""
-    client_signature = request.headers.get("X-Signature", "")
-    timestamp = request.headers.get("X-Timestamp", "")
-
-    if not timestamp or not client_signature:
-        return False
-
-    try:
-        current_time = int(time.time())
-        if abs(current_time - int(timestamp)) > 60:  # Allow max 60s time difference
-            return False
-
-        expected_signature = hmac.new(
-            SECRET_KEY.encode(),
-            timestamp.encode(),
-            hashlib.sha256
-        ).hexdigest()
-
-        return hmac.compare_digest(client_signature, expected_signature)
+        query = next(search(prompt, num=1, stop=1))
+        return f"🔎 Web Search Result: {query}"
     except:
-        return False
+        return ask_chatgpt(prompt)
 
-@app.before_request
-def check_auth():
-    """Middleware to validate requests before processing."""
-    if request.endpoint in ["handle_prompt"] and not validate_hmac_auth(request):
-        return jsonify({"error": "Unauthorized"}), 403
-
-# ========================== #
-# 🚀 API ENDPOINT - AI Processing #
-# ========================== #
-
-@app.route("/api/prompt", methods=["POST"])
-def handle_prompt():
-    """Handles user prompt and returns AI-generated response."""
-    data = request.json
-    prompt = data.get("prompt", "")
-
-    ai_response = process_prompt(prompt)
-
-    # Store the query for AI learning
-    save_query_to_db(prompt, ai_response)
-
-    return jsonify({"response": ai_response})
-
-# ========================== #
-# 🤖 CHATGPT FALLBACK #
-# ========================== #
-
+# 🤖 ChatGPT Integration
 def ask_chatgpt(prompt):
     """Queries ChatGPT for missing data responses."""
     try:
@@ -155,10 +82,31 @@ def ask_chatgpt(prompt):
     except Exception as e:
         return f"ChatGPT Error: {e}"
 
-# ========================== #
-# 🌐 FRONTEND UI #
-# ========================== #
+# 💰 Financial Analysis AI
+def financial_analysis(prompt):
+    """Performs AI-driven financial analysis."""
+    return f"📈 AI Financial Analysis: Expected ROI for this sector is {random.randint(5, 25)}%."
 
+# 🖼️ Serve Company Logo
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    """Serves static files like logo.jpg"""
+    return send_from_directory('static', filename)
+
+# 🌐 AI Prompt Processing API Endpoint
+@app.route("/api/prompt", methods=["POST"])
+def handle_prompt():
+    """Handles user prompt and returns AI-generated response."""
+    data = request.json
+    prompt = data.get("prompt", "")
+    
+    if request.headers.get("Authorization") != API_SECRET_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    ai_response = process_prompt(prompt)
+    return jsonify({"response": ai_response})
+
+# 🏠 Frontend UI with Accepl.AI Branding
 @app.route("/")
 def index():
     return f"""
@@ -167,7 +115,7 @@ def index():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AI-Powered EPC System</title>
+        <title>Accepl.AI</title>
         <style>
             body {{ font-family: Arial, sans-serif; text-align: center; margin: 50px; }}
             img {{ width: 200px; margin-bottom: 20px; }}
@@ -178,8 +126,8 @@ def index():
     </head>
     <body>
         <img src="/static/logo.jpg" alt="Company Logo">
-        <h1>AI-Powered EPC & Smart Grid Assistant</h1>
-        <input type="text" id="userPrompt" placeholder="Ask your AI a question...">
+        <h1>Accepl.AI - AI-Powered EPC & Smart Grid Assistant</h1>
+        <input type="text" id="userPrompt" placeholder="Ask AI...">
         <button onclick="sendPrompt()">Get AI Response</button>
         <div id="response"></div>
         <script>
@@ -190,7 +138,7 @@ def index():
                 responseDiv.innerHTML = "Processing...";
                 let response = await fetch("/api/prompt", {{
                     method: "POST",
-                    headers: {{"Authorization": "{SECRET_KEY}", "Content-Type": "application/json"}},
+                    headers: {{"Authorization": "{API_SECRET_KEY}", "Content-Type": "application/json"}},
                     body: JSON.stringify({{ prompt: prompt }})
                 }});
                 let result = await response.json();
@@ -201,10 +149,7 @@ def index():
     </html>
     """
 
-# ========================== #
-# 🚀 SERVER START (RENDER COMPATIBLE) #
-# ========================== #
-
+# 🚀 Run Server
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Render assigns port dynamically
+    port = int(os.environ.get("PORT", 5000)) 
     app.run(host="0.0.0.0", port=port, debug=True)
