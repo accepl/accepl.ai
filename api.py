@@ -1,4 +1,5 @@
 import os
+import os
 import json
 import random
 import requests
@@ -19,7 +20,7 @@ openai.api_key = os.environ.get("OPENAI_API_KEY", "your_openai_api_key")
 # 🎛️ Initialize Flask App
 app = Flask(__name__)
 
-# 🤖 AI Core Model
+# 🤖 AI Core Model (For Learning & Predictions)
 class AIModel(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(AIModel, self).__init__()
@@ -70,15 +71,16 @@ def fallback_search(prompt):
     except:
         return ask_chatgpt(prompt)
 
-# 🤖 ChatGPT Integration
+# 🤖 ChatGPT Integration (Fixed for OpenAI v1.0.0+)
 def ask_chatgpt(prompt):
-    """Queries ChatGPT for missing data responses."""
+    """Queries OpenAI's GPT model for responses."""
     try:
-        response = openai.ChatCompletion.create(
+        client = openai.OpenAI(api_key=openai.api_key)
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[{"role": "user", "content": prompt}]
         )
-        return response["choices"][0]["message"]["content"]
+        return response.choices[0].message.content
     except Exception as e:
         return f"ChatGPT Error: {e}"
 
