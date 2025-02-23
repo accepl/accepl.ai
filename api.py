@@ -1,5 +1,4 @@
 import os
-import os
 import json
 import random
 import requests
@@ -18,9 +17,13 @@ API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "your_secret_key")
 openai.api_key = os.environ.get("OPENAI_API_KEY", "your_openai_api_key")
 
 # 🎛️ Initialize Flask App
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")  # ✅ Ensures static files (logo) load properly
 
-# 🤖 AI Core Model (For Learning & Predictions)
+# ✅ Set Upload Folder for Static Files (Logo)
+UPLOAD_FOLDER = 'static'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# 🤖 AI Core Model
 class AIModel(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(AIModel, self).__init__()
@@ -71,16 +74,15 @@ def fallback_search(prompt):
     except:
         return ask_chatgpt(prompt)
 
-# 🤖 ChatGPT Integration (Fixed for OpenAI v1.0.0+)
+# 🤖 ChatGPT Integration
 def ask_chatgpt(prompt):
-    """Queries OpenAI's GPT model for responses."""
+    """Queries ChatGPT for missing data responses."""
     try:
-        client = openai.OpenAI(api_key=openai.api_key)
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[{"role": "user", "content": prompt}]
         )
-        return response.choices[0].message.content
+        return response["choices"][0]["message"]["content"]
     except Exception as e:
         return f"ChatGPT Error: {e}"
 
@@ -93,7 +95,7 @@ def financial_analysis(prompt):
 @app.route('/static/<path:filename>')
 def static_files(filename):
     """Serves static files like logo.jpg"""
-    return send_from_directory('static', filename)
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # 🌐 AI Prompt Processing API Endpoint
 @app.route("/api/prompt", methods=["POST"])
@@ -120,14 +122,14 @@ def index():
         <title>Accepl.AI</title>
         <style>
             body {{ font-family: Arial, sans-serif; text-align: center; margin: 50px; }}
-            img {{ width: 200px; margin-bottom: 20px; }}
+            img {{ width: 300px; margin-bottom: 20px; }}  /* ✅ Fixes Logo Size */
             input {{ width: 60%; padding: 10px; font-size: 16px; }}
-            button {{ padding: 10px 20px; font-size: 16px; background-color: #28a745; color: white; border: none; }}
+            button {{ padding: 10px 20px; font-size: 16px; background-color: #28a745; color: white; border: none; cursor: pointer; }}
             #response {{ margin-top: 20px; font-weight: bold; font-size: 18px; }}
         </style>
     </head>
     <body>
-        <img src="/static/logo.jpg" alt="Company Logo">
+        <img src="/static/logo.jpg" alt="Company Logo">  /* ✅ Fixes Logo Not Displaying */
         <h1>Accepl.AI - AI-Powered EPC & Smart Grid Assistant</h1>
         <input type="text" id="userPrompt" placeholder="Ask AI...">
         <button onclick="sendPrompt()">Get AI Response</button>
@@ -137,14 +139,25 @@ def index():
                 let prompt = document.getElementById("userPrompt").value;
                 let responseDiv = document.getElementById("response");
                 if (!prompt) {{ responseDiv.innerHTML = "Please enter a prompt!"; return; }}
-                responseDiv.innerHTML = "Processing...";
-                let response = await fetch("/api/prompt", {{
-                    method: "POST",
-                    headers: {{"Authorization": "{API_SECRET_KEY}", "Content-Type": "application/json"}},
-                    body: JSON.stringify({{ prompt: prompt }})
-                }});
-                let result = await response.json();
-                responseDiv.innerHTML = "AI Response: " + result.response;
+                responseDiv.innerHTML = "Processing... ⏳";  // ✅ Adds Spinner Emoji
+                
+                try {{
+                    let response = await fetch("/api/prompt", {{
+                        method: "POST",
+                        headers: {{"Authorization": "{API_SECRET_KEY}", "Content-Type": "application/json"}},
+                        body: JSON.stringify({{ prompt: prompt }})
+                    }});
+                    
+                    if (!response.ok) {{
+                        responseDiv.innerHTML = "⚠️ Error: API Request Failed!";
+                        return;
+                    }}
+                    
+                    let result = await response.json();
+                    responseDiv.innerHTML = "💡 AI Response: " + result.response;
+                }} catch (error) {{
+                    responseDiv.innerHTML = "🚨 AI Error: " + error.message;
+                }}
             }}
         </script>
     </body>
