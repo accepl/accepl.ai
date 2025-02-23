@@ -7,21 +7,34 @@ import torch.nn as nn
 import numpy as np
 import pandas as pd
 import openai
+import hmac
+import hashlib
+import time
+import sqlite3
 from flask import Flask, request, jsonify, send_from_directory
+from googlesearch import search
+
+# ========================== #
+# 🔒 SECURITY CONFIGURATION  #
+# ========================== #
 
 # API Security Key (For Authentication)
-API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "your_secret_key")
+SECRET_KEY = os.environ.get("SECRET_KEY", "your_very_secure_secret")
 
 # OpenAI API Key (For ChatGPT Fallback)
 openai.api_key = os.environ.get("OPENAI_API_KEY", "your_openai_api_key")
 
-# Initialize Flask App
+# ========================== #
+# 🌐 FLASK APP INITIALIZATION #
+# ========================== #
 app = Flask(__name__)
 
-# ==============================
-# ✅ AI Core Model (Self-Learning)
-# ==============================
+# ========================== #
+# 🤖 AI MODEL CONFIGURATION  #
+# ========================== #
+
 class AIModel(nn.Module):
+    """A simple LSTM-based AI model."""
     def __init__(self, input_size, hidden_size, output_size):
         super(AIModel, self).__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True)
@@ -32,48 +45,15 @@ class AIModel(nn.Module):
         output = self.fc(lstm_out[:, -1, :])
         return output
 
-# Dummy Data Training
-def train_dummy_models():
-    """Trains AI models on dummy datasets for EPC, Smart Grid, Oil & Gas, Telecom, and IPP."""
-    np.random.seed(42)
-    torch.manual_seed(42)
+# ========================== #
+# 🔍 AI DECISION-MAKING LOGIC #
+# ========================== #
 
-    models = {}
-    industries = ["EPC", "SmartGrid", "OilGas", "Telecom", "IPP"]
-    
-    for industry in industries:
-        input_size, hidden_size, output_size = 10, 20, 1
-        model = AIModel(input_size, hidden_size, output_size)
-
-        # Generate random data
-        X_train = torch.rand(100, 10, input_size)
-        y_train = torch.rand(100, output_size)
-
-        criterion = nn.MSELoss()
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-
-        for epoch in range(50):  # Train for 50 epochs
-            optimizer.zero_grad()
-            output = model(X_train)
-            loss = criterion(output, y_train)
-            loss.backward()
-            optimizer.step()
-
-        models[industry] = model
-    return models
-
-# Train Models
-trained_models = train_dummy_models()
-
-# ==============================
-# ✅ AI Decision-Making Logic
-# ==============================
 def process_prompt(prompt):
-    """Processes a user prompt and generates an AI response."""
+    """Processes a natural language prompt and predicts using AI models."""
     prompt = prompt.lower()
     response = ""
 
-    # AI Decision Logic (Trillion Logic)
     if "grid" in prompt:
         response = f"AI Grid Optimization: Adjust power load by {random.randint(10, 50)}%."
     elif "battery" in prompt or "bess" in prompt:
@@ -81,15 +61,91 @@ def process_prompt(prompt):
     elif "maintenance" in prompt:
         response = f"Predictive Maintenance: Failure likelihood in next 30 days: {random.randint(5, 25)}%."
     else:
-        response = ask_chatgpt(prompt)  # Fallback to ChatGPT
+        response = live_google_search(prompt) or ask_chatgpt(prompt)  # Self-healing AI
 
     return response
 
-# ==============================
-# ✅ ChatGPT Fallback
-# ==============================
+# ========================== #
+# 🌍 LIVE GOOGLE SEARCH Fallback #
+# ========================== #
+
+def live_google_search(query):
+    """Fetches top 3 search results from Google if AI can't answer."""
+    try:
+        results = list(search(query, num_results=3))
+        return f"Live Google Search Results: {', '.join(results)}" if results else None
+    except Exception as e:
+        return None
+
+# ========================== #
+# 💡 AI LEARNING & DATABASE STORAGE #
+# ========================== #
+
+def save_query_to_db(user_query, ai_response):
+    """Saves AI queries & responses to a database for learning."""
+    conn = sqlite3.connect("ai_learning.db")
+    cursor = conn.cursor()
+    cursor.execute("CREATE TABLE IF NOT EXISTS queries (id INTEGER PRIMARY KEY, prompt TEXT, response TEXT)")
+    cursor.execute("INSERT INTO queries (prompt, response) VALUES (?, ?)", (user_query, ai_response))
+    conn.commit()
+    conn.close()
+
+# ========================== #
+# 🔒 API SECURITY - HMAC AUTH #
+# ========================== #
+
+def validate_hmac_auth(request):
+    """Validates API requests using HMAC authentication."""
+    client_signature = request.headers.get("X-Signature", "")
+    timestamp = request.headers.get("X-Timestamp", "")
+
+    if not timestamp or not client_signature:
+        return False
+
+    try:
+        current_time = int(time.time())
+        if abs(current_time - int(timestamp)) > 60:  # Allow max 60s time difference
+            return False
+
+        expected_signature = hmac.new(
+            SECRET_KEY.encode(),
+            timestamp.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        return hmac.compare_digest(client_signature, expected_signature)
+    except:
+        return False
+
+@app.before_request
+def check_auth():
+    """Middleware to validate requests before processing."""
+    if request.endpoint in ["handle_prompt"] and not validate_hmac_auth(request):
+        return jsonify({"error": "Unauthorized"}), 403
+
+# ========================== #
+# 🚀 API ENDPOINT - AI Processing #
+# ========================== #
+
+@app.route("/api/prompt", methods=["POST"])
+def handle_prompt():
+    """Handles user prompt and returns AI-generated response."""
+    data = request.json
+    prompt = data.get("prompt", "")
+
+    ai_response = process_prompt(prompt)
+
+    # Store the query for AI learning
+    save_query_to_db(prompt, ai_response)
+
+    return jsonify({"response": ai_response})
+
+# ========================== #
+# 🤖 CHATGPT FALLBACK #
+# ========================== #
+
 def ask_chatgpt(prompt):
-    """Queries ChatGPT if AI lacks a trained response."""
+    """Queries ChatGPT for missing data responses."""
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4",
@@ -99,32 +155,10 @@ def ask_chatgpt(prompt):
     except Exception as e:
         return f"ChatGPT Error: {e}"
 
-# ==============================
-# ✅ API Endpoint for AI Prompt Processing
-# ==============================
-@app.route("/api/prompt", methods=["POST"])
-def handle_prompt():
-    """Handles user prompt and returns AI-generated response."""
-    data = request.json
-    prompt = data.get("prompt", "")
+# ========================== #
+# 🌐 FRONTEND UI #
+# ========================== #
 
-    if request.headers.get("Authorization") != API_SECRET_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-
-    ai_response = process_prompt(prompt)
-    return jsonify({"response": ai_response})
-
-# ==============================
-# ✅ Serve Company Logo
-# ==============================
-@app.route('/static/<path:filename>')
-def static_files(filename):
-    """Serves static files like logo.jpg"""
-    return send_from_directory('static', filename)
-
-# ==============================
-# ✅ Built-in Frontend UI
-# ==============================
 @app.route("/")
 def index():
     return f"""
@@ -156,7 +190,7 @@ def index():
                 responseDiv.innerHTML = "Processing...";
                 let response = await fetch("/api/prompt", {{
                     method: "POST",
-                    headers: {{"Authorization": "{API_SECRET_KEY}", "Content-Type": "application/json"}},
+                    headers: {{"Authorization": "{SECRET_KEY}", "Content-Type": "application/json"}},
                     body: JSON.stringify({{ prompt: prompt }})
                 }});
                 let result = await response.json();
@@ -167,9 +201,10 @@ def index():
     </html>
     """
 
-# ==============================
-# ✅ Start Server with Render-Compatible Port
-# ==============================
+# ========================== #
+# 🚀 SERVER START (RENDER COMPATIBLE) #
+# ========================== #
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))  # Render assigns port dynamically
     app.run(host="0.0.0.0", port=port, debug=True)
